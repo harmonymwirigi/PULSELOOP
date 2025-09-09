@@ -1,0 +1,5 @@
+{
+  "name": "PulseLoopCare",
+  "description": "A professional charting and posting web app for health professionals. Users can sign up, sign in, and once approved by an admin, create posts with media and text, comment on posts, and react.",
+  "requestFramePermissions": []
+}
