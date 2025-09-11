@@ -43,7 +43,6 @@ yarn-error.log*
 lerna-debug.log*
 
 # Frontend build
-frontend/dist/
 frontend/build/
 
 # Database
