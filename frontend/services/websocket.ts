@@ -1,3 +1,4 @@
+// frontend/services/websocket.ts
 import { io, Socket } from 'socket.io-client';
 
 class WebSocketService {
@@ -14,7 +15,7 @@ class WebSocketService {
         }
 
         try {
-            this.socket = io('http://localhost:5000', {
+            this.socket = io(import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000', {
                 transports: ['websocket', 'polling'],
                 timeout: 20000,
                 forceNew: true

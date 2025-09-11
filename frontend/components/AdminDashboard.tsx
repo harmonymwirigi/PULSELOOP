@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, getPendingBlogs, approveBlog } from '../services/mockApi';
-import { User, Resource, Blog } from '../types';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, getPendingBlogs, approveBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage } from '../services/mockApi';
+import { User, Resource, Blog, BroadcastMessage } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
-type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'RESOURCES' | 'BLOGS';
+type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES';
 
 const AdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('PENDING_USERS');
@@ -12,21 +12,25 @@ const AdminDashboard: React.FC = () => {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [pendingResources, setPendingResources] = useState<Resource[]>([]);
     const [pendingBlogs, setPendingBlogs] = useState<Blog[]>([]);
+    const [broadcastMessages, setBroadcastMessages] = useState<BroadcastMessage[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [viewingItem, setViewingItem] = useState<Resource | Blog | null>(null);
     const [showConfirmModal, setShowConfirmModal] = useState<{show: boolean, type: 'delete' | 'role', user: User | null, newRole?: string}>({show: false, type: 'delete', user: null});
+    const [showBroadcastModal, setShowBroadcastModal] = useState<{show: boolean, editing?: BroadcastMessage}>({show: false});
+    const [broadcastForm, setBroadcastForm] = useState<{title: string, message: string}>({title: '', message: ''});
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const [pendingUsersData, allUsersData, resources, blogs] = await Promise.all([
+            const [pendingUsersData, allUsersData, resources, blogs, broadcastData] = await Promise.all([
                 getPendingUsers(),
                 getAllUsers(),
                 getPendingResources(),
-                getPendingBlogs()
+                getPendingBlogs(),
+                getAllBroadcastMessages()
             ]);
             setPendingUsers(pendingUsersData);
             setAllUsers(allUsersData);
@@ -108,6 +112,58 @@ const AdminDashboard: React.FC = () => {
         );
     }
     
+    const handleCreateBroadcastMessage = async () => {
+        if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+            setError('Title and message are required');
+            return;
+        }
+        
+        try {
+            await createBroadcastMessage(broadcastForm);
+            setBroadcastForm({title: '', message: ''});
+            setShowBroadcastModal({show: false});
+            fetchData();
+        } catch (err) {
+            setError('Failed to create broadcast message');
+        }
+    };
+
+    const handleUpdateBroadcastMessage = async () => {
+        if (!broadcastForm.title.trim() || !broadcastForm.message.trim()) {
+            setError('Title and message are required');
+            return;
+        }
+        
+        if (!showBroadcastModal.editing) return;
+        
+        try {
+            await updateBroadcastMessage(showBroadcastModal.editing.id, broadcastForm);
+            setBroadcastForm({title: '', message: ''});
+            setShowBroadcastModal({show: false});
+            fetchData();
+        } catch (err) {
+            setError('Failed to update broadcast message');
+        }
+    };
+
+    const handleDeleteBroadcastMessage = async (messageId: string) => {
+        try {
+            await deleteBroadcastMessage(messageId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to delete broadcast message');
+        }
+    };
+
+    const handleToggleBroadcastMessage = async (messageId: string, isActive: boolean) => {
+        try {
+            await updateBroadcastMessage(messageId, { is_active: isActive });
+            fetchData();
+        } catch (err) {
+            setError('Failed to toggle broadcast message');
+        }
+    };
+
     const renderContent = () => {
         if (loading) return <div className="flex justify-center mt-8"><Spinner size="lg" color="teal" /></div>;
         if (error) return <p className="text-center text-red-500 mt-4">{error}</p>;
@@ -135,6 +191,14 @@ const AdminDashboard: React.FC = () => {
                 return pendingBlogs.length > 0 ? (
                     <BlogTable blogs={pendingBlogs} onView={setViewingItem} />
                 ) : <p className="text-gray-500 text-center py-8">No pending blog approvals.</p>;
+            case 'BROADCAST_MESSAGES':
+                return <BroadcastMessagesTable 
+                    messages={broadcastMessages} 
+                    onCreateNew={() => setShowBroadcastModal({show: true})}
+                    onEdit={(message) => setShowBroadcastModal({show: true, editing: message})}
+                    onDelete={handleDeleteBroadcastMessage}
+                    onToggleActive={handleToggleBroadcastMessage}
+                />;
             default:
                 return null;
         }
@@ -148,6 +212,7 @@ const AdminDashboard: React.FC = () => {
                 <TabButton title="All Users" count={allUsers.length} activeTab={activeTab} onClick={() => setActiveTab('ALL_USERS')} />
                 <TabButton title="Resources" count={pendingResources.length} activeTab={activeTab} onClick={() => setActiveTab('RESOURCES')} />
                 <TabButton title="Blogs" count={pendingBlogs.length} activeTab={activeTab} onClick={() => setActiveTab('BLOGS')} />
+                <TabButton title="Broadcast Messages" count={broadcastMessages.length} activeTab={activeTab} onClick={() => setActiveTab('BROADCAST_MESSAGES')} />
             </div>
             {renderContent()}
             
@@ -187,6 +252,55 @@ const AdminDashboard: React.FC = () => {
                                 }`}
                             >
                                 {approvingId === showConfirmModal.user!.id ? <Spinner /> : 'Confirm'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Broadcast Message Modal */}
+            {showBroadcastModal.show && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">
+                            {showBroadcastModal.editing ? 'Edit Broadcast Message' : 'Create New Broadcast Message'}
+                        </h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                                <input
+                                    type="text"
+                                    value={broadcastForm.title}
+                                    onChange={(e) => setBroadcastForm({...broadcastForm, title: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Enter message title..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                                <textarea
+                                    value={broadcastForm.message}
+                                    onChange={(e) => setBroadcastForm({...broadcastForm, message: e.target.value})}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 h-32"
+                                    placeholder="Enter your message to all users..."
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end space-x-3 mt-6">
+                            <button 
+                                onClick={() => {
+                                    setShowBroadcastModal({show: false});
+                                    setBroadcastForm({title: '', message: ''});
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={showBroadcastModal.editing ? handleUpdateBroadcastMessage : handleCreateBroadcastMessage}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-semibold"
+                            >
+                                {showBroadcastModal.editing ? 'Update' : 'Create'} Message
                             </button>
                         </div>
                     </div>
@@ -375,6 +489,79 @@ const DeleteButton: React.FC<{
     >
         Delete
     </button>
+);
+
+const BroadcastMessagesTable: React.FC<{
+    messages: BroadcastMessage[];
+    onCreateNew: () => void;
+    onEdit: (message: BroadcastMessage) => void;
+    onDelete: (messageId: string) => void;
+    onToggleActive: (messageId: string, isActive: boolean) => void;
+}> = ({ messages, onCreateNew, onEdit, onDelete, onToggleActive }) => (
+    <div className="space-y-4">
+        <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-800">Broadcast Messages</h3>
+            <button
+                onClick={onCreateNew}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 font-semibold"
+            >
+                Create New Message
+            </button>
+        </div>
+        
+        {messages.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No broadcast messages found.</p>
+        ) : (
+            <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                <ul className="divide-y divide-gray-200">
+                    {messages.map((message) => (
+                        <li key={message.id} className={`px-6 py-4 ${message.isActive ? 'bg-green-50' : 'bg-gray-50'}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                    <div className="flex items-center space-x-3">
+                                        <h4 className="text-sm font-medium text-gray-900">{message.title}</h4>
+                                        {message.isActive && (
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-1 text-sm text-gray-600 line-clamp-2">{message.message}</p>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Created: {new Date(message.createdAt).toLocaleDateString()}
+                                    </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={() => onToggleActive(message.id, !message.isActive)}
+                                        className={`px-3 py-1 text-xs font-medium rounded-md ${
+                                            message.isActive
+                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        }`}
+                                    >
+                                        {message.isActive ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    <button
+                                        onClick={() => onEdit(message)}
+                                        className="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200"
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(message.id)}
+                                        className="px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
+    </div>
 );
 
 export default AdminDashboard;

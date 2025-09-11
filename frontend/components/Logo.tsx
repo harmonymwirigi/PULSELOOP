@@ -13,13 +13,15 @@ const Logo: React.FC<LogoProps> = ({ textColorClassName = 'text-teal-600', onCli
             style={{ cursor: onClick ? 'pointer' : 'default' }}
         >
             <div className="relative">
+                {/* White background circle for better visibility */}
+                <div className="absolute inset-0 bg-white rounded-full shadow-lg"></div>
                 <img 
                     src="/logo.png" 
                     alt="PulseLoopCare Logo" 
-                    className="w-10 h-10 object-contain drop-shadow-md"
+                    className="relative w-10 h-10 object-contain z-10 p-1"
                 />
             </div>
-            <h1 className={`text-2xl font-bold ${textColorClassName} drop-shadow-sm`}>PulseLoopCare</h1>
+            <h1 className={`text-2xl font-bold ${textColorClassName} drop-shadow-lg`}>PulseLoopCare</h1>
         </div>
     );
 };

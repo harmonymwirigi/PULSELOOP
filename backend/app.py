@@ -18,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import desc
 
 # --- UPDATED: Import new models ---
-from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification
+from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage
 
 # Load environment variables
 load_dotenv()
@@ -50,10 +50,12 @@ SMTP_USERNAME = os.getenv("SMTP_USERNAME")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 APP_DOMAIN = os.getenv("APP_DOMAIN", "http://localhost:5173")
 
-if not all([SUPABASE_URL, SUPABASE_KEY, DB_CONNECTION_STRING]):
-    raise RuntimeError("Supabase credentials or DB connection string are not set.")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+# VPS PostgreSQL Configuration - No Supabase needed
+if not DB_CONNECTION_STRING:
+    raise RuntimeError("DB_CONNECTION_STRING is not set.")
+# Remove Supabase dependencies for VPS deployment
+# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 app.config['SQLALCHEMY_DATABASE_URI'] = DB_CONNECTION_STRING
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
@@ -586,11 +588,9 @@ def get_posts():
         limit = 10
     
     try:
-        # Start with base query using eager loading to prevent N+1 queries
+        # OPTIMIZED: Only load author for feed performance
         query = Post.query.options(
-            db.joinedload(Post.author),
-            db.joinedload(Post.comments).joinedload(Comment.author),
-            db.joinedload(Post.reactions)
+            db.joinedload(Post.author)  # Only load author, not comments/reactions
         )
         
         # Apply tag filter if provided
@@ -603,9 +603,9 @@ def get_posts():
         # Apply pagination and ordering
         posts = query.order_by(Post.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
         
-        # Return paginated response
+        # Return paginated response - USE FAST FEED METHOD
         return jsonify({
-            "posts": [post.to_dict() for post in posts],
+            "posts": [post.to_dict_feed() for post in posts],
             "total": total
         }), 200
         
@@ -684,10 +684,16 @@ def get_trending_topics():
 @app.route('/api/posts/<uuid:post_id>', methods=['GET'])
 @authenticated_only
 def get_post_by_id(post_id):
-    post = Post.query.get(post_id)
+    # OPTIMIZED: Load all data for single post view
+    post = Post.query.options(
+        db.joinedload(Post.author),
+        db.joinedload(Post.comments).joinedload(Comment.author),
+        db.joinedload(Post.reactions)
+    ).get(post_id)
+    
     if not post:
         return jsonify({"error": "Post not found"}), 404
-    return jsonify(post.to_dict()), 200
+    return jsonify(post.to_dict_detailed()), 200
 
 @app.route('/api/posts/<uuid:post_id>', methods=['PUT'])
 @role_required(['NURSE', 'ADMIN'])
@@ -717,11 +723,15 @@ def update_post_text(post_id):
 @app.route('/api/users/<uuid:user_id>/posts', methods=['GET'])
 @authenticated_only
 def get_user_posts(user_id):
-    # ... (existing code)
     user = User.query.get(user_id)
     if not user: return jsonify({"error": "User not found"}), 404
-    posts = Post.query.filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
-    return jsonify([post.to_dict() for post in posts]), 200
+    
+    # OPTIMIZED: Use fast feed method for user posts
+    posts = Post.query.options(
+        db.joinedload(Post.author)
+    ).filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
+    
+    return jsonify([post.to_dict_feed() for post in posts]), 200
  
    
 @app.route('/api/posts', methods=['POST'])
@@ -1600,6 +1610,112 @@ def delete_blog(blog_id):
         db.session.rollback()
         app.logger.error(f"Error deleting blog: {e}")
         return jsonify({"error": "Failed to delete blog"}), 500
+
+# --- BROADCAST MESSAGE ENDPOINTS ---
+
+@app.route('/api/broadcast-messages', methods=['GET'])
+def get_active_broadcast_message():
+    """Get the currently active broadcast message for the landing page"""
+    try:
+        # Get the most recent active broadcast message
+        broadcast_message = BroadcastMessage.query.filter_by(is_active=True).order_by(BroadcastMessage.created_at.desc()).first()
+        
+        if not broadcast_message:
+            return jsonify({"message": None}), 200
+        
+        return jsonify({"message": broadcast_message.to_dict()}), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching broadcast message: {e}")
+        return jsonify({"error": "Failed to fetch broadcast message"}), 500
+
+@app.route('/api/admin/broadcast-messages', methods=['GET'])
+@role_required(['ADMIN'])
+def get_all_broadcast_messages():
+    """Get all broadcast messages for admin management"""
+    try:
+        messages = BroadcastMessage.query.order_by(BroadcastMessage.created_at.desc()).all()
+        return jsonify([message.to_dict() for message in messages]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching broadcast messages: {e}")
+        return jsonify({"error": "Failed to fetch broadcast messages"}), 500
+
+@app.route('/api/admin/broadcast-messages', methods=['POST'])
+@role_required(['ADMIN'])
+def create_broadcast_message():
+    """Create a new broadcast message"""
+    try:
+        data = request.json
+        if not data or not data.get('title') or not data.get('message'):
+            return jsonify({"error": "Title and message are required"}), 400
+        
+        # Deactivate all existing broadcast messages
+        BroadcastMessage.query.update({"is_active": False})
+        
+        # Create new broadcast message
+        new_message = BroadcastMessage(
+            title=data['title'].strip(),
+            message=data['message'].strip(),
+            created_by=request.user_id,
+            is_active=True
+        )
+        
+        db.session.add(new_message)
+        db.session.commit()
+        
+        return jsonify(new_message.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating broadcast message: {e}")
+        return jsonify({"error": "Failed to create broadcast message"}), 500
+
+@app.route('/api/admin/broadcast-messages/<uuid:message_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def update_broadcast_message(message_id):
+    """Update a broadcast message"""
+    try:
+        message = BroadcastMessage.query.get(message_id)
+        if not message:
+            return jsonify({"error": "Broadcast message not found"}), 404
+        
+        data = request.json
+        if not data:
+            return jsonify({"error": "Request body is required"}), 400
+        
+        # Update fields if provided
+        if 'title' in data:
+            message.title = data['title'].strip()
+        if 'message' in data:
+            message.message = data['message'].strip()
+        if 'is_active' in data:
+            # If activating this message, deactivate all others
+            if data['is_active']:
+                BroadcastMessage.query.filter(BroadcastMessage.id != message_id).update({"is_active": False})
+            message.is_active = data['is_active']
+        
+        db.session.commit()
+        return jsonify(message.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating broadcast message: {e}")
+        return jsonify({"error": "Failed to update broadcast message"}), 500
+
+@app.route('/api/admin/broadcast-messages/<uuid:message_id>', methods=['DELETE'])
+@role_required(['ADMIN'])
+def delete_broadcast_message(message_id):
+    """Delete a broadcast message"""
+    try:
+        message = BroadcastMessage.query.get(message_id)
+        if not message:
+            return jsonify({"error": "Broadcast message not found"}), 404
+        
+        db.session.delete(message)
+        db.session.commit()
+        
+        return jsonify({"message": "Broadcast message deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting broadcast message: {e}")
+        return jsonify({"error": "Failed to delete broadcast message"}), 500
 
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])

@@ -85,9 +85,12 @@ class Post(db.Model):
             "createdAt": self.created_at.isoformat(), 
             "author": self.author.to_dict() if self.author else None, 
             "tags": self.tags or [],  # Return actual tags array or empty array
+            # --- KEY PERFORMANCE OPTIMIZATION: Add counts instead of full data ---
+            "commentCount": len(self.comments) if self.comments else 0,
+            "reactionCount": len(self.reactions) if self.reactions else 0
         }
         
-        # Only include comments and reactions if requested (for performance)
+        # Only include full comments and reactions if specifically requested
         if include_comments:
             result["comments"] = [comment.to_dict() for comment in (self.comments or [])]
         else:
@@ -99,6 +102,34 @@ class Post(db.Model):
             result["reactions"] = []
             
         return result
+
+    def to_dict_feed(self):
+        """
+        ULTRA-FAST: Minimal data for feed listings
+        Use this for the main feed to maximize performance
+        """
+        return {
+            "id": str(self.id),
+            "authorId": str(self.author_id),
+            "text": self.text,
+            "mediaUrl": self.media_url,
+            "mediaType": self.media_type,
+            "displayName": self.display_name,
+            "createdAt": self.created_at.isoformat(),
+            "author": self.author.to_dict() if self.author else None,
+            "tags": self.tags or [],
+            "commentCount": len(self.comments) if self.comments else 0,
+            "reactionCount": len(self.reactions) if self.reactions else 0,
+            "comments": [],  # Empty for feed
+            "reactions": []  # Empty for feed
+        }
+
+    def to_dict_detailed(self):
+        """
+        DETAILED: Full method for single post view - loads all data
+        Use this only when you need complete post details
+        """
+        return self.to_dict(include_comments=True, include_reactions=True)
 
 class Comment(db.Model):
     __tablename__ = 'comments'
@@ -245,6 +276,30 @@ class Notification(db.Model):
             "data": self.data or {},
             "isRead": self.is_read,
             "createdAt": self.created_at.isoformat()
+        }
+
+class BroadcastMessage(db.Model):
+    __tablename__ = 'broadcast_messages'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+    title = db.Column(db.Text, nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, server_default='true')
+    created_by = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    
+    # Relationship to user who created the message
+    creator = db.relationship('User', backref='broadcast_messages', lazy=True)
+    
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "title": self.title,
+            "message": self.message,
+            "isActive": self.is_active,
+            "createdBy": str(self.created_by),
+            "createdAt": self.created_at.isoformat(),
+            "updatedAt": self.updated_at.isoformat()
         }
 
 class Resource(db.Model):

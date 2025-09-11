@@ -78,24 +78,75 @@ const LandingPage: React.FC = () => {
             {/* Header */}
             <header className="absolute top-0 left-0 w-full z-10 py-4 px-4 sm:px-8">
                 <div className="container mx-auto flex justify-between items-center">
-                    <Logo textColorClassName="text-gray-800" />
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+                        <Logo textColorClassName="text-teal-600" />
+                    </div>
                     <div className="space-x-2">
-                        <button onClick={() => openModal('login')} className="px-4 py-2 text-gray-700 font-medium rounded-md hover:bg-gray-100 transition-colors">Login</button>
-                        <button onClick={() => openModal('signup')} className="px-4 py-2 bg-teal-500 text-white font-medium rounded-md hover:bg-teal-600 transition-colors">Sign Up</button>
+                        <button onClick={() => openModal('login')} className="px-4 py-2 text-gray-700 font-medium rounded-md hover:bg-gray-100 transition-colors bg-white/90 backdrop-blur-sm">Login</button>
+                        <button onClick={() => openModal('signup')} className="px-4 py-2 bg-teal-500 text-white font-medium rounded-md hover:bg-teal-600 transition-colors shadow-lg">Sign Up</button>
                     </div>
                 </div>
             </header>
 
             <main>
                 {/* Hero Section */}
-                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center" style={{ backgroundImage: "url('/firstlanding.png')" }}>
+                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
                     <div className="relative z-10 px-4">
-                        <h2 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6 drop-shadow-lg">Connecting Healthcare professionals Together</h2>
-                        <p className="text-lg md:text-xl text-gray-100 max-w-3xl mx-auto mb-8 drop-shadow-md">A trusted , secure social space where licensed healthcare professionals connect, share real experiences through stories and build lasting connections in a space just made for you.</p>
+                        <div className="mb-4">
+                            <span className="inline-block bg-teal-500/20 backdrop-blur-sm text-teal-300 px-4 py-2 rounded-full text-sm font-semibold border border-teal-400/30">
+                                🏥 Trusted by 10,000+ Healthcare Professionals
+                            </span>
+                        </div>
+                        <h2 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6 drop-shadow-lg">Connecting Healthcare Professionals Together</h2>
+                        <p className="text-lg md:text-xl text-gray-100 max-w-3xl mx-auto mb-8 drop-shadow-md">A trusted, secure social space where licensed healthcare professionals connect, share real experiences through stories and build lasting connections in a space just made for you.</p>
+                        
+                        {/* Key Benefits */}
+                        <div className="flex flex-wrap justify-center gap-6 mb-8 text-sm text-gray-200">
+                            <div className="flex items-center">
+                                <svg className="w-5 h-5 text-teal-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                HIPAA Compliant
+                            </div>
+                            <div className="flex items-center">
+                                <svg className="w-5 h-5 text-teal-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                AI-Powered Insights
+                            </div>
+                            <div className="flex items-center">
+                                <svg className="w-5 h-5 text-teal-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                                Real-time Collaboration
+                            </div>
+                        </div>
+
                         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                            <button onClick={() => openModal('signup')} className="px-8 py-4 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 transition-all duration-300 hover:scale-105 text-lg shadow-lg hover:shadow-xl">Join the Community</button>
-                            <button onClick={() => openModal('login')} className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-bold rounded-full hover:bg-white/30 transition-all duration-300 text-lg border border-white/30">Sign In</button>
+                            <button onClick={() => openModal('signup')} className="px-8 py-4 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 transition-all duration-300 hover:scale-105 text-lg shadow-lg hover:shadow-xl flex items-center">
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                </svg>
+                                Join the Community
+                            </button>
+                            <button onClick={() => openModal('login')} className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-bold rounded-full hover:bg-white/30 transition-all duration-300 text-lg border border-white/30 flex items-center">
+                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                </svg>
+                                Sign In
+                            </button>
+                        </div>
+                        
+                        {/* Trust Indicators */}
+                        <div className="mt-12 text-center">
+                            <p className="text-sm text-gray-300 mb-4">Trusted by professionals from</p>
+                            <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
+                                <div className="text-white font-semibold">Mayo Clinic</div>
+                                <div className="text-white font-semibold">Johns Hopkins</div>
+                                <div className="text-white font-semibold">Cleveland Clinic</div>
+                                <div className="text-white font-semibold">Mass General</div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -157,39 +208,6 @@ const LandingPage: React.FC = () => {
                     </div>
                 </section>
                 
-                {/* AI Integration Section */}
-                <section className="py-24 bg-gradient-to-br from-teal-50 to-blue-50">
-                    <div className="container mx-auto px-4">
-                        <div className="grid md:grid-cols-2 gap-16 items-center">
-                            <div className="pr-8">
-                                <span className="text-teal-600 font-semibold uppercase tracking-wider text-sm">AI Integration</span>
-                                <h3 className="text-4xl font-bold text-gray-800 mt-3 mb-6">Unlock Deeper Insights with AI</h3>
-                                <p className="text-gray-600 mb-8 text-lg leading-relaxed">Our platform integrates state-of-the-art AI to help you analyze complex cases, identify subtle patterns, and accelerate the path to accurate diagnoses. Go beyond the data and uncover connections you might have missed.</p>
-                                <ul className="space-y-6">
-                                    <AiFeatureListItem 
-                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6a2 2 0 100-4 2 2 0 000 4zm0 14a2 2 0 100-4 2 2 0 000 4zm6-8a2 2 0 100-4 2 2 0 000 4zm-12 0a2 2 0 100-4 2 2 0 000 4z" /></svg>}
-                                        title="Diagnostic Assistance"
-                                        description="Receive AI-generated suggestions for potential diagnoses based on shared case data and medical history."
-                                    />
-                                    <AiFeatureListItem 
-                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
-                                        title="Pattern Recognition"
-                                        description="The system automatically flags anomalies and identifies trends across multiple cases, highlighting potential outbreaks or common complications."
-                                    />
-                                     <AiFeatureListItem 
-                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-                                        title="Predictive Analysis"
-                                        description="Leverage predictive models to forecast patient outcomes and treatment efficacy, enabling more proactive and personalized care."
-                                    />
-                                </ul>
-                            </div>
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/20 to-blue-500/20 rounded-lg"></div>
-                                <img src="/aiscan.jpg" alt="AI analyzing medical scans" className="rounded-lg shadow-2xl object-cover w-full h-full relative z-10" />
-                            </div>
-                        </div>
-                    </div>
-                </section>
 
                 {/* Testimonials Section */}
                 <section className="py-24 bg-white">
@@ -283,16 +301,5 @@ const TestimonialCard: React.FC<{quote: string, name: string, role: string, avat
     </div>
 );
 
-const AiFeatureListItem: React.FC<{icon: React.ReactNode, title: string, description: string}> = ({ icon, title, description }) => (
-    <li className="flex items-start group">
-        <div className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-teal-100 text-teal-600 rounded-full mr-4 transition-transform duration-300 group-hover:scale-110">
-            {icon}
-        </div>
-        <div>
-            <h4 className="text-lg font-bold text-gray-800">{title}</h4>
-            <p className="text-gray-600">{description}</p>
-        </div>
-    </li>
-);
 
 export default LandingPage;

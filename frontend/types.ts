@@ -66,6 +66,16 @@ export interface Notification {
     createdAt: string;
 }
 
+export interface BroadcastMessage {
+    id: string;
+    title: string;
+    message: string;
+    isActive: boolean;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface Post {
     id: string;
     author: User;

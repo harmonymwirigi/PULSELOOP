@@ -1,3 +1,4 @@
+// frontend/components/Feed.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { getPosts, createPost as apiCreatePost } from '../services/mockApi';
 import { Post, Role, DisplayNamePreference } from '../types';
@@ -114,6 +115,47 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
 
     return (
         <div>
+            {/* Dashboard Header */}
+            {user && (
+                <div className="bg-gradient-to-r from-indigo-600 to-cyan-600 rounded-xl p-6 mb-6 text-white shadow-lg">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                        <div className="mb-4 md:mb-0">
+                            <h1 className="text-2xl font-bold mb-2">
+                                Welcome back, {user.name?.split(' ')[0] || 'there'}! 👋
+                            </h1>
+                            <p className="text-indigo-100">
+                                {new Date().toLocaleDateString('en-US', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                })}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold">{totalPosts}</div>
+                                <div className="text-sm text-indigo-100">Total Posts</div>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold">{posts.length}</div>
+                                <div className="text-sm text-indigo-100">This Page</div>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold">{user.role}</div>
+                                <div className="text-sm text-indigo-100">Your Role</div>
+                            </div>
+                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
+                                <div className="text-2xl font-bold">
+                                    {user.profileCompletionPercentage || 0}%
+                                </div>
+                                <div className="text-sm text-indigo-100">Profile Complete</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {user && (user.role === Role.NURSE || user.role === Role.ADMIN) && <CreatePostForm onCreatePost={handleCreatePost} />}
             {user && user.role === Role.PENDING && (
                  <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6" role="alert">

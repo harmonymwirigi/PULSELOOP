@@ -1,0 +1,26 @@
+# VPS PostgreSQL Database Configuration
+# Copy this to your backend/.env file and update with your actual values
+
+DATABASE_URL=postgresql://pulseloop_user:9Q0A3C43.dIBtQxKoJ#a@194.164.72.53:5432/pulseloop_db
+
+# Remove or comment out these Supabase variables:
+# SUPABASE_URL=your_supabase_url
+# SUPABASE_KEY=your_supabase_key
+# SUPABASE_SERVICE_KEY=your_supabase_service_key
+
+# Keep these variables:
+FLASK_ENV=production
+SECRET_KEY=your_secret_key_here
+JWT_SECRET_KEY=your_jwt_secret_here
+
+# Email configuration
+SMTP_SERVER=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+
+# OpenAI (optional)
+OPENAI_API_KEY=your_openai_key_here
+
+# App domain for invitations
+APP_DOMAIN=https://pulseloopcare.com

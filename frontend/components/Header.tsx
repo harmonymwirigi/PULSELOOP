@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Role, View } from '../types';
 import Logo from './Logo';
 import NotificationBell from './NotificationBell';
+import SearchBar from './SearchBar';
 
 // Avatar component for consistent avatar display
 const getInitials = (name: string) => {
@@ -32,13 +33,24 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.
 
+interface SearchResult {
+    id: string;
+    type: 'post' | 'resource' | 'blog';
+    title: string;
+    content: string;
+    author?: string;
+    createdAt: string;
+    url: string;
+}
+
 interface HeaderProps {
     navigateTo: (view: View) => void;
     currentView: View;
     onOpenNotifications?: () => void;
+    onSearchResult?: (result: SearchResult) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifications }) => {
+const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifications, onSearchResult }) => {
     const { user, logout } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -78,6 +90,26 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 <nav className="flex items-center space-x-1">
                     {user ? (
                         <>
+                            {/* Search Bar */}
+                            <div className="hidden lg:block mr-4">
+                                <SearchBar 
+                                    onResultClick={(result) => {
+                                        if (onSearchResult) {
+                                            onSearchResult(result);
+                                        }
+                                        // Navigate based on result type
+                                        if (result.type === 'post') {
+                                            navigateTo('FEED');
+                                        } else if (result.type === 'resource') {
+                                            navigateTo('RESOURCES');
+                                        } else if (result.type === 'blog') {
+                                            navigateTo('BLOGS');
+                                        }
+                                    }}
+                                    placeholder="Search posts, resources, blogs..."
+                                />
+                            </div>
+                            
                             <div className="hidden md:flex items-center space-x-1 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/20">
                                 <NavButton view="FEED">Feed</NavButton>
                                 <NavButton view="RESOURCES">Resources</NavButton>

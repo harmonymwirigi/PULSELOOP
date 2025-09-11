@@ -156,14 +156,17 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
     return (
         <div className="fixed inset-0 z-50 overflow-hidden">
-            <div className="absolute inset-0 bg-black bg-opacity-50" onClick={onClose} />
+            <div className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm" onClick={onClose} />
             
-            <div className="absolute right-0 top-0 h-full w-96 bg-white shadow-xl">
-                <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-semibold text-gray-900">
+            <div className="absolute right-0 top-0 h-full w-full sm:w-96 bg-white dark:bg-gray-800 shadow-2xl transform transition-transform duration-300 ease-in-out">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50 to-cyan-50 dark:from-gray-800 dark:to-gray-700">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                        <svg className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4.828 7l2.586 2.586a2 2 0 002.828 0L12.828 7H4.828zM4.828 17h8l-2.586-2.586a2 2 0 00-2.828 0L4.828 17zM12 3a1 1 0 011 1v1h3a1 1 0 110 2h-1v9a2 2 0 01-2 2H7a2 2 0 01-2-2V7H4a1 1 0 110-2h3V4a1 1 0 011-1z" />
+                        </svg>
                         Notifications
                         {unreadCount > 0 && (
-                            <span className="ml-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                            <span className="ml-2 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
                                 {unreadCount}
                             </span>
                         )}
@@ -172,16 +175,18 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         {unreadCount > 0 && (
                             <button
                                 onClick={handleMarkAllAsRead}
-                                className="text-sm text-blue-600 hover:text-blue-800"
+                                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium transition-colors duration-200"
                             >
                                 Mark all read
                             </button>
                         )}
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600"
+                            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                         >
-                            ✕
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -197,36 +202,46 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
                             <p>No notifications yet</p>
                         </div>
                     ) : (
-                        <div className="divide-y">
-                            {notifications.map((notification) => (
+                        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {notifications.map((notification, index) => (
                                 <div
                                     key={notification.id}
-                                    className={`p-4 cursor-pointer hover:bg-gray-50 ${
-                                        !notification.isRead ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                                    className={`p-4 cursor-pointer transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                                        !notification.isRead 
+                                            ? 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 shadow-sm' 
+                                            : 'hover:shadow-sm'
                                     }`}
                                     onClick={() => handleNotificationClick(notification)}
+                                    style={{
+                                        animationDelay: `${index * 50}ms`,
+                                        animation: 'slideInRight 0.3s ease-out'
+                                    }}
                                 >
                                     <div className="flex items-start space-x-3">
-                                        <div className="text-2xl">
+                                        <div className={`text-2xl transition-transform duration-200 hover:scale-110 ${
+                                            !notification.isRead ? 'animate-pulse' : ''
+                                        }`}>
                                             {getNotificationIcon(notification.type)}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between">
-                                                <p className={`text-sm font-medium ${
-                                                    !notification.isRead ? 'text-gray-900' : 'text-gray-700'
+                                                <p className={`text-sm font-medium transition-colors duration-200 ${
+                                                    !notification.isRead 
+                                                        ? 'text-gray-900 dark:text-white' 
+                                                        : 'text-gray-700 dark:text-gray-300'
                                                 }`}>
                                                     {notification.title}
                                                 </p>
-                                                <span className="text-xs text-gray-500">
+                                                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                                                     {formatTimeAgo(notification.createdAt)}
                                                 </span>
                                             </div>
-                                            <p className="text-sm text-gray-600 mt-1">
+                                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 leading-relaxed">
                                                 {notification.message}
                                             </p>
                                         </div>
                                         {!notification.isRead && (
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2" />
+                                            <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex-shrink-0 mt-2 animate-pulse shadow-sm" />
                                         )}
                                     </div>
                                 </div>

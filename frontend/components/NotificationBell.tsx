@@ -62,17 +62,19 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onOpenNotifications
         <div className="relative">
             <button
                 onClick={onOpenNotifications}
-                className="relative p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded-full"
-                title="Notifications"
+                className="relative p-3 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded-full transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-700 group"
+                title={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
             >
                 {/* Connection status indicator */}
-                <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
-                    isConnected ? 'bg-green-500' : 'bg-red-500'
-                }`} />
+                <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full transition-all duration-300 ${
+                    isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                }`} title={isConnected ? 'Connected' : 'Disconnected'} />
                 
-                {/* Bell icon */}
+                {/* Bell icon with animation */}
                 <svg 
-                    className="w-6 h-6" 
+                    className={`w-6 h-6 transition-all duration-200 ${
+                        unreadCount > 0 ? 'animate-bounce text-red-500' : 'group-hover:scale-110'
+                    }`}
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -85,12 +87,15 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ onOpenNotifications
                     />
                 </svg>
                 
-                {/* Unread count badge */}
+                {/* Unread count badge with enhanced styling */}
                 {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold shadow-lg animate-pulse border-2 border-white dark:border-gray-800">
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
+                
+                {/* Ripple effect on click */}
+                <div className="absolute inset-0 rounded-full bg-teal-500 opacity-0 group-active:opacity-20 transition-opacity duration-150" />
             </button>
         </div>
     );

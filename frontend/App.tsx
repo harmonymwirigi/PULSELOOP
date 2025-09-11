@@ -1,5 +1,7 @@
+// frontend/App.tsx
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Feed from './components/Feed';
 import AdminDashboard from './components/AdminDashboard';
@@ -20,6 +22,10 @@ import Invitations from './components/Invitations';
 import TrendingTopics from './components/TrendingTopics';
 import NotificationBell from './components/NotificationBell';
 import NotificationCenter from './components/NotificationCenter';
+import DarkModeToggle from './components/DarkModeToggle';
+import MobileNav from './components/MobileNav';
+import SearchBar from './components/SearchBar';
+import BroadcastMessageComponent from './components/BroadcastMessage';
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.
 
@@ -109,7 +115,7 @@ const AppContent: React.FC = () => {
                 className={`flex items-center space-x-3 px-4 py-3 rounded-xl w-full text-left font-semibold transition-all duration-200 ${
                     isCurrent
                         ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-md transform scale-105'
-                        : 'text-slate-700 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 hover:shadow-sm'
+                        : 'text-slate-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 dark:hover:from-indigo-900/20 dark:hover:to-cyan-900/20 hover:text-indigo-900 dark:hover:text-indigo-300 hover:shadow-sm'
                 }`}
             >
                 {icon}
@@ -120,9 +126,29 @@ const AppContent: React.FC = () => {
 
 
     return (
-        <div className="min-h-screen font-sans text-gray-800 flex flex-col">
+        <div className="min-h-screen font-sans text-gray-800 dark:text-gray-200 bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-200">
 
-            <Header navigateTo={navigateTo} currentView={currentView} onOpenNotifications={handleOpenNotifications} />
+            <Header 
+                navigateTo={navigateTo} 
+                currentView={currentView} 
+                onOpenNotifications={handleOpenNotifications}
+                onSearchResult={(result) => {
+                    // Handle search result navigation
+                    if (result.type === 'post') {
+                        // Find and navigate to the specific post
+                        console.log('Navigate to post:', result.id);
+                        navigateTo('FEED');
+                    } else if (result.type === 'resource') {
+                        // Navigate to resources and highlight the specific resource
+                        console.log('Navigate to resource:', result.id);
+                        navigateTo('RESOURCES');
+                    } else if (result.type === 'blog') {
+                        // Navigate to blogs and highlight the specific blog
+                        console.log('Navigate to blog:', result.id);
+                        navigateTo('BLOGS');
+                    }
+                }}
+            />
             <InviteModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
             <main className="container mx-auto px-4 py-8 flex-grow relative">
                 {/* Background Pattern */}
@@ -137,11 +163,45 @@ const AppContent: React.FC = () => {
                  {user && (user.profileCompletionPercentage ?? 0) < 100 && currentView !== 'PROFILE' && (
                     <ProfileCompletionBanner user={user} navigateTo={navigateTo} />
                 )}
+                
+                {/* Broadcast Message for logged-in users */}
+                <BroadcastMessageComponent />
+                
+                {/* Mobile Search Bar */}
+                <div className="lg:hidden mb-6">
+                    <SearchBar 
+                        onResultClick={(result) => {
+                            if (result.type === 'post') {
+                                navigateTo('FEED');
+                            } else if (result.type === 'resource') {
+                                navigateTo('RESOURCES');
+                            } else if (result.type === 'blog') {
+                                navigateTo('BLOGS');
+                            }
+                        }}
+                        placeholder="Search posts, resources, blogs..."
+                    />
+                </div>
                 {currentView === 'FEED' ? (
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                         {/* Left Sidebar */}
                         <aside className="hidden lg:block lg:col-span-1">
-                            <div className="sticky top-24 bg-white/95 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 space-y-2">
+                            <div className="sticky top-24 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 space-y-4">
+                                {/* Mobile Search Bar */}
+                                <div className="lg:hidden">
+                                    <SearchBar 
+                                        onResultClick={(result) => {
+                                            if (result.type === 'post') {
+                                                navigateTo('FEED');
+                                            } else if (result.type === 'resource') {
+                                                navigateTo('RESOURCES');
+                                            } else if (result.type === 'blog') {
+                                                navigateTo('BLOGS');
+                                            }
+                                        }}
+                                        placeholder="Search..."
+                                    />
+                                </div>
                                 <NavLink view="FEED" label="Feed" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>} />
                                 <NavLink view="RESOURCES" label="Resources" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9" /></svg>} />
                                 <NavLink view="BLOGS" label="Blogs" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} />
@@ -149,10 +209,18 @@ const AppContent: React.FC = () => {
                                 <NavLink label="Invite a Colleague" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>} onClick={() => setIsInviteModalOpen(true)} />
                                 {user.role === Role.ADMIN && <NavLink view="ADMIN" label="Admin Panel" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} />}
                                 
-                                {/* Notification Bell */}
-                                <div className="pt-2 border-t border-gray-200">
+                                {/* Dark Mode Toggle */}
+                                <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
                                     <div className="flex items-center justify-between px-4 py-2">
-                                        <span className="text-sm font-medium text-gray-600">Notifications</span>
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Theme</span>
+                                        <DarkModeToggle />
+                                    </div>
+                                </div>
+                                
+                                {/* Notification Bell */}
+                                <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                                    <div className="flex items-center justify-between px-4 py-2">
+                                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Notifications</span>
                                         <NotificationBell onOpenNotifications={handleOpenNotifications} />
                                     </div>
                                 </div>
@@ -161,14 +229,14 @@ const AppContent: React.FC = () => {
 
                         {/* Main Content */}
                         <div className="lg:col-span-2 relative">
-                           <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6">
+                           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
                                <MainContent />
                            </div>
                         </div>
                         
                         {/* Right Sidebar - Trending Topics */}
                         <aside className="hidden lg:block lg:col-span-1">
-                            <div className="sticky top-24 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6">
+                            <div className="sticky top-24 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
                                 <TrendingTopics 
                                     onTagClick={(tag) => {
                                         // Set the tag filter and navigate to feed
@@ -181,13 +249,13 @@ const AppContent: React.FC = () => {
                     </div>
                 ) : (
                     <div className="relative">
-                        <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6">
+                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
                             <MainContent />
                         </div>
                         {/* Mobile Trending Topics - Show below main content on mobile */}
                         {currentView === 'FEED' && (
                             <div className="mt-8 lg:hidden">
-                                <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 p-6">
+                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
                                     <TrendingTopics 
                                         onTagClick={(tag) => {
                                             setFeedTagFilter(tag);
@@ -206,15 +274,23 @@ const AppContent: React.FC = () => {
                 onClose={handleCloseNotifications}
                 onNavigateToPost={handleNavigateToPost}
             />
+            <MobileNav 
+                currentView={currentView}
+                navigateTo={navigateTo}
+                onOpenNotifications={handleOpenNotifications}
+                onInviteClick={() => setIsInviteModalOpen(true)}
+            />
         </div>
     );
 };
 
 const App: React.FC = () => {
     return (
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <AppContent />
+            </AuthProvider>
+        </ThemeProvider>
     );
 };
 

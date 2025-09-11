@@ -1,8 +1,9 @@
+// frontend/services/mockApi.ts
 
-import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification } from '../types';
+import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage } from '../types';
 
-const API_BASE_URL = 'http://localhost:5000/api';
-const BACKEND_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BACKEND_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
 // Utility function to convert relative URLs to absolute URLs
 const getAbsoluteUrl = (url: string | null | undefined): string | null => {
@@ -379,5 +380,46 @@ export const markAllNotificationsRead = async (): Promise<void> => {
 
 export const getUnreadCount = async (): Promise<{ unread_count: number }> => {
     const response = await fetchWithAuth('/notifications/unread-count');
+    return handleApiResponse(response);
+};
+
+// --- BROADCAST MESSAGE API FUNCTIONS ---
+
+export const getActiveBroadcastMessage = async (): Promise<{ message: BroadcastMessage | null }> => {
+    const response = await fetch(`${API_BASE_URL}/broadcast-messages`);
+    return handleApiResponse(response);
+};
+
+export const getAllBroadcastMessages = async (): Promise<BroadcastMessage[]> => {
+    const response = await fetchWithAuth('/admin/broadcast-messages');
+    return handleApiResponse(response);
+};
+
+export const createBroadcastMessage = async (data: { title: string; message: string }): Promise<BroadcastMessage> => {
+    const response = await fetchWithAuth('/admin/broadcast-messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+    return handleApiResponse(response);
+};
+
+export const updateBroadcastMessage = async (messageId: string, data: { title?: string; message?: string; is_active?: boolean }): Promise<BroadcastMessage> => {
+    const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+    return handleApiResponse(response);
+};
+
+export const deleteBroadcastMessage = async (messageId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}`, {
+        method: 'DELETE',
+    });
     return handleApiResponse(response);
 };
