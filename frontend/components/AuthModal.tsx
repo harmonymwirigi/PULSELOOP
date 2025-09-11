@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Login from './Login';
 import Signup from './Signup';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 interface AuthModalProps {
     initialMode: 'login' | 'signup';
@@ -11,6 +12,7 @@ interface AuthModalProps {
 
 const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose, invitationToken, onViewPolicy }) => {
     const [mode, setMode] = useState(initialMode);
+    const [showForgotPassword, setShowForgotPassword] = useState(false);
 
     useEffect(() => {
         const handleEsc = (event: KeyboardEvent) => {
@@ -43,11 +45,23 @@ const AuthModal: React.FC<AuthModalProps> = ({ initialMode, onClose, invitationT
                     </svg>
                 </button>
                 {mode === 'login' ? (
-                    <Login onSwitchToSignup={() => setMode('signup')} />
+                    <Login 
+                        onSwitchToSignup={() => setMode('signup')} 
+                        onForgotPassword={() => setShowForgotPassword(true)}
+                    />
                 ) : (
                     <Signup onSwitchToLogin={() => setMode('login')} invitationToken={invitationToken} onViewPolicy={onViewPolicy} />
                 )}
             </div>
+            
+            <ForgotPasswordModal
+                isOpen={showForgotPassword}
+                onClose={() => setShowForgotPassword(false)}
+                onSwitchToLogin={() => {
+                    setShowForgotPassword(false);
+                    setMode('login');
+                }}
+            />
         </div>
     );
 };

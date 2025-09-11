@@ -11,35 +11,38 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_migrate import Migrate
-from flask_socketio import SocketIO, emit, join_room, leave_room
-from supabase import create_client, Client
+from flask_socketio import SocketIO, join_room, leave_room
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import desc
 
-# --- UPDATED: Import new models ---
-from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage
+# --- Security and Authentication ---
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from datetime import datetime, timedelta, timezone
+
+# --- Import your corrected models ---
+from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*") 
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-# --- Configuration & Initialization (no changes here) ---
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "post_media")
-SUPABASE_AVATARS_BUCKET = os.getenv("SUPABASE_AVATARS_BUCKET", "avatars")
-SUPABASE_RESOURCES_BUCKET = os.getenv("SUPABASE_RESOURCES_BUCKET", "resources")
-SUPABASE_BLOGS_BUCKET = os.getenv("SUPABASE_BLOGS_BUCKET", "blogs")
+# --- Configuration & Initialization ---
 DB_CONNECTION_STRING = os.getenv("DB_CONNECTION_STRING")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    app.logger.warning("OPENAI_API_KEY not set. AI chat endpoint will not work.")
-else:
-    openai.api_key = OPENAI_API_KEY
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+APP_DOMAIN = os.getenv("APP_DOMAIN", "http://localhost:5173")
+# Add a secret key for signing JWT tokens. Change this to a random string!
+SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this")
+
+app.config['SECRET_KEY'] = SECRET_KEY
 
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -53,27 +56,28 @@ APP_DOMAIN = os.getenv("APP_DOMAIN", "http://localhost:5173")
 # VPS PostgreSQL Configuration - No Supabase needed
 if not DB_CONNECTION_STRING:
     raise RuntimeError("DB_CONNECTION_STRING is not set.")
-# Remove Supabase dependencies for VPS deployment
-# supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-# supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+
 app.config['SQLALCHEMY_DATABASE_URI'] = DB_CONNECTION_STRING
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Test Supabase client connection
-try:
-    # Test if we can access storage
-    buckets = supabase.storage.list_buckets()
-    app.logger.info(f"Supabase client initialized successfully. Available buckets: {[b.name for b in buckets]}")
-except Exception as e:
-    app.logger.error(f"Error initializing Supabase client: {e}")
+# Test Supabase client connection - DISABLED FOR VPS DEPLOYMENT
+# try:
+#     # Test if we can access storage
+#     buckets = supabase.storage.list_buckets()
+#     app.logger.info(f"Supabase client initialized successfully. Available buckets: {[b.name for b in buckets]}")
+# except Exception as e:
+#     app.logger.error(f"Error initializing Supabase client: {e}")
 
 # Local file storage configuration
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi'}
+if OPENAI_API_KEY:
+    openai.api_key = OPENAI_API_KEY
 
-# Create upload directories
+# --- Local File Storage (Unchanged) ---
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'avatars'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'posts'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'resources'), exist_ok=True)
@@ -90,52 +94,52 @@ def save_file_locally(file, folder):
         unique_filename = f"{uuid.uuid4()}_{filename}"
         file_path = os.path.join(UPLOAD_FOLDER, folder, unique_filename)
         file.save(file_path)
-        return f"/uploads/{folder}/{unique_filename}"
-    return None
+        return f"/uploads/{folder}/{unique_filename}", unique_filename
+    return None, None
 
 # Serve uploaded files
 @app.route('/uploads/<path:filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
-# --- Decorators (no changes here) ---
 def role_required(roles):
     def decorator(f):
         @wraps(f)
+        @authenticated_only # This decorator runs first to get the user
         def decorated_function(*args, **kwargs):
-            auth_header = request.headers.get('Authorization')
-            if not auth_header: return jsonify({"error": "Authentication required"}), 401
-            try:
-                token = auth_header.split(" ")[1]
-                user_info = supabase.auth.get_user(token)
-                if not user_info or not user_info.user: return jsonify({"error": "Invalid or expired token"}), 401
-                user = User.query.get(user_info.user.id)
-                if not user: return jsonify({"error": "User profile not found"}), 404
-                if user.role not in roles: return jsonify({"error": f"Access denied. Required roles: {', '.join(roles)}"}), 403
-                request.user_id = user.id
-            except Exception as e:
-                app.logger.error(f"Authentication/Authorization error: {e}")
-                return jsonify({"error": "Authentication failed"}), 401
+            user = User.query.get(request.user_id)
+            if user.role not in roles:
+                return jsonify({'message': f'Access denied. Required roles: {", ".join(roles)}'}), 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator
 
 def authenticated_only(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header: return jsonify({"error": "Authentication required"}), 401
-        try:
-            token = auth_header.split(" ")[1]
-            user_info = supabase.auth.get_user(token)
-            if not user_info or not user_info.user: return jsonify({"error": "Invalid or expired token"}), 401
-            request.user_id = user_info.user.id
-        except Exception as e:
-            app.logger.error(f"Authentication error: {e}")
-            return jsonify({"error": "Authentication failed"}), 401
-        return f(*args, **kwargs)
-    return decorated_function
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            try:
+                token = request.headers['Authorization'].split(" ")[1]
+            except IndexError:
+                return jsonify({'message': 'Token is missing or malformed!'}), 401
 
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user = User.query.get(data['user_id'])
+            if not current_user:
+                return jsonify({'message': 'User not found!'}), 401
+            request.user_id = current_user.id # Pass user_id to the route
+        except jwt.ExpiredSignatureError:
+            return jsonify({'message': 'Token has expired!'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'message': 'Token is invalid!'}), 401
+
+        return f(*args, **kwargs)
+    return decorated
 # --- Helper function for file uploads (now using local storage) ---
 def upload_to_storage(media_file, folder_name):
     """Upload file to local storage instead of Supabase"""
@@ -212,6 +216,70 @@ def send_invitation_email(invitee_email, inviter_name, token):
         app.logger.error(f"Failed to send invitation email to {invitee_email}: {e}")
         return False
 
+def send_password_reset_email(user_email, user_name, reset_token):
+    """
+    Send password reset email to the user.
+    
+    Args:
+        user_email: Email address of the user
+        user_name: Name of the user
+        reset_token: Unique password reset token
+    """
+    if not all([SMTP_USERNAME, SMTP_PASSWORD]):
+        app.logger.warning("SMTP credentials not configured. Email sending is disabled.")
+        return False
+    
+    try:
+        # Create the password reset URL
+        base_url = APP_DOMAIN.rstrip('/')
+        reset_url = f"{base_url}/reset-password?reset_token={reset_token}"
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = SMTP_USERNAME
+        msg['To'] = user_email
+        msg['Subject'] = "Reset Your PulseLoop Password"
+        
+        # Email body
+        body = f"""
+        <html>
+        <body>
+            <h2>Password Reset Request</h2>
+            <p>Hello {user_name},</p>
+            <p>We received a request to reset your password for your PulseLoop account.</p>
+            <p>Click the link below to reset your password:</p>
+            <p><a href="{reset_url}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
+            <p>Or copy and paste this link into your browser:</p>
+            <p>{reset_url}</p>
+            <p><strong>Important:</strong></p>
+            <ul>
+                <li>This link will expire in 1 hour for security reasons</li>
+                <li>If you didn't request this password reset, please ignore this email</li>
+                <li>Your password will remain unchanged until you create a new one</li>
+            </ul>
+            <p>If you have any questions, please contact our support team.</p>
+            <p>Best regards,<br>The PulseLoop Team</p>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(body, 'html'))
+        
+        # Send email
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SMTP_USERNAME, SMTP_PASSWORD)
+        text = msg.as_string()
+        server.sendmail(SMTP_USERNAME, user_email, text)
+        server.quit()
+        
+        app.logger.info(f"Password reset email sent successfully to {user_email}")
+        return True
+        
+    except Exception as e:
+        app.logger.error(f"Failed to send password reset email to {user_email}: {e}")
+        return False
+
 def generate_display_name(user, display_name_preference):
     """
     Generate display name based on user preference and user data.
@@ -278,55 +346,33 @@ def generate_display_name(user, display_name_preference):
 # --- Existing API Endpoints (no changes here) ---
 @app.route('/api/signup', methods=['POST'])
 def signup():
-    # ... (existing code)
     data = request.json
     email, password, name = data.get('email'), data.get('password'), data.get('name')
-    invitation_token = data.get('invitationToken')
     
-    if not all([email, password, name]): 
+    if not all([email, password, name]):
         return jsonify({"error": "Email, password, and name are required"}), 400
-    
-    # Validate invitation token if provided
-    inviter_user_id = None
-    if invitation_token:
-        try:
-            invitation = Invitation.query.filter_by(token=invitation_token).first()
-            if not invitation:
-                return jsonify({"error": "Invalid invitation token"}), 400
-            if invitation.status != 'PENDING':
-                return jsonify({"error": "This invitation has already been used"}), 400
-            if invitation.invitee_email.lower() != email.lower():
-                return jsonify({"error": "Email does not match the invitation"}), 400
-            inviter_user_id = invitation.inviter_user_id
-        except Exception as e:
-            app.logger.error(f"Error validating invitation token: {e}")
-            return jsonify({"error": "Failed to validate invitation"}), 500
-    
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email address already registered"}), 409
+
     try:
-        user_response = supabase.auth.sign_up({"email": email, "password": password})
-        if user_response.user is None: 
-            return jsonify({"error": "User already exists or invalid credentials provided."}), 400
-        
-        # Create user profile with invitation data if applicable
-        new_user_profile = User(
-            id=user_response.user.id, 
-            name=name, 
-            email=email, 
-            role='PENDING',
-            invited_by_user_id=inviter_user_id
+        # Securely hash the password before storing it
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+        # Create new user with hashed password
+        new_user = User(
+            name=name,
+            email=email,
+            password=hashed_password,
+            role='PENDING'
         )
-        db.session.add(new_user_profile)
         
-        # Update invitation status if token was provided
-        if invitation_token and inviter_user_id:
-            invitation.status = 'ACCEPTED'
-            invitation.accepted_at = db.func.now()
-        
+        db.session.add(new_user)
         db.session.commit()
         
-        return jsonify({ 
-            "message": "User signed up successfully. Awaiting admin approval.", 
-            "user": new_user_profile.to_dict() 
+        return jsonify({
+            "message": "User signed up successfully. Awaiting admin approval.",
+            "user": new_user.to_dict()
         }), 201
         
     except Exception as e:
@@ -336,24 +382,131 @@ def signup():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    # ... (existing code)
     data = request.json
     email, password = data.get('email'), data.get('password')
-    if not email or not password: return jsonify({"error": "Email and password are required"}), 400
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user or not check_password_hash(user.password, password):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    # Create a JWT token
+    token = jwt.encode({
+        'user_id': user.id,
+        'exp': datetime.utcnow() + timedelta(hours=24) # Token expires in 24 hours
+    }, app.config['SECRET_KEY'], algorithm="HS256")
+
+    return jsonify({"accessToken": token, "user": user.to_dict()}), 200
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Send password reset email to user.
+    """
+    data = request.json
+    email = data.get('email') if data else None
+    
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+    
     try:
-        response = supabase.auth.sign_in_with_password({"email": email, "password": password})
-        if response.user is None: return jsonify({"error": "Invalid credentials or user not found"}), 401
-        user_profile = User.query.get(response.user.id)
-        if not user_profile: return jsonify({"error": "User profile not found"}), 404
-        return jsonify({ "accessToken": response.session.access_token, "user": user_profile.to_dict() }), 200
+        # Find user by email
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            # Don't reveal if email exists or not for security
+            return jsonify({"message": "If an account with that email exists, a password reset link has been sent"}), 200
+        
+        # Generate secure reset token
+        reset_token = generate_secure_token()
+        
+        # Set expiration time (1 hour from now) - use timezone-naive datetime for database compatibility
+        expires_at = datetime.utcnow() + timedelta(hours=1)
+        
+        # Create password reset record
+        password_reset = PasswordReset(
+            user_id=user.id,
+            token=reset_token,
+            expires_at=expires_at,
+            used=False
+        )
+        
+        db.session.add(password_reset)
+        db.session.commit()
+        
+        # Send password reset email
+        email_sent = send_password_reset_email(user.email, user.name, reset_token)
+        
+        if not email_sent:
+            app.logger.warning(f"Failed to send password reset email to {user.email}")
+        
+        return jsonify({"message": "If an account with that email exists, a password reset link has been sent"}), 200
+        
     except Exception as e:
-        app.logger.error(f"Login error: {e}")
-        return jsonify({"error": "Login failed"}), 500
+        db.session.rollback()
+        app.logger.error(f"Error in forgot password: {e}")
+        return jsonify({"error": "Failed to process password reset request"}), 500
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """
+    Reset user password using reset token.
+    """
+    data = request.json
+    token = data.get('token') if data else None
+    new_password = data.get('newPassword') if data else None
+    
+    if not token or not new_password:
+        return jsonify({"error": "Token and new password are required"}), 400
+    
+    if len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters long"}), 400
+    
+    try:
+        # Find valid reset token
+        password_reset = PasswordReset.query.filter_by(
+            token=token, 
+            used=False
+        ).first()
+        
+        if not password_reset:
+            return jsonify({"error": "Invalid or expired reset token"}), 400
+        
+        # Check if token has expired - compare timezone-naive datetimes
+        current_time = datetime.now(timezone.utc).replace(tzinfo=None)
+        if password_reset.expires_at < current_time:
+            return jsonify({"error": "Reset token has expired"}), 400
+        
+        # Get the user
+        user = User.query.get(password_reset.user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Hash the new password
+        hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+        
+        # Update user password
+        user.password = hashed_password
+        
+        # Mark reset token as used
+        password_reset.used = True
+        
+        db.session.commit()
+        
+        return jsonify({"message": "Password has been reset successfully"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error resetting password: {e}")
+        return jsonify({"error": "Failed to reset password"}), 500
 
 @app.route('/api/users/<uuid:user_id>', methods=['GET'])
 def get_user_profile(user_id):
-    # ... (existing code)
-    user = User.query.get(user_id)
+    # Convert UUID to string for database query
+    user_id_str = str(user_id)
+    user = User.query.get(user_id_str)
     if not user: return jsonify({"error": "User not found"}), 404
     return jsonify(user.to_dict()), 200
 
@@ -366,14 +519,13 @@ def upload_avatar():
     avatar_file = request.files['avatarFile']
     user_id = request.user_id
     
-    avatar_url, unique_filename = upload_to_storage(avatar_file, SUPABASE_AVATARS_BUCKET)
+    avatar_url, unique_filename = upload_to_storage(avatar_file, 'avatars')
     if not avatar_url:
         return jsonify({"error": "Failed to upload avatar file"}), 500
     
     try:
         user = User.query.get(user_id)
         if not user:
-            cleanup_storage_file(unique_filename, SUPABASE_AVATARS_BUCKET)
             return jsonify({"error": "User not found"}), 404
         
         user.avatar_url = avatar_url
@@ -382,7 +534,6 @@ def upload_avatar():
         return jsonify(user.to_dict()), 200
     except Exception as e:
         db.session.rollback()
-        cleanup_storage_file(unique_filename, SUPABASE_AVATARS_BUCKET)
         app.logger.error(f"Error updating avatar in DB: {e}")
         return jsonify({"error": "Failed to update user profile"}), 500
 
@@ -588,14 +739,18 @@ def get_posts():
         limit = 10
     
     try:
-        # OPTIMIZED: Only load author for feed performance
+        # Load all necessary data for feed display
         query = Post.query.options(
-            db.joinedload(Post.author)  # Only load author, not comments/reactions
+            db.joinedload(Post.author),  # Load author
+            db.joinedload(Post.comments).joinedload(Comment.author),  # Load comments and their authors
+            db.joinedload(Post.comments).joinedload(Comment.reactions),  # Load comment reactions
+            db.joinedload(Post.reactions)  # Load post reactions
         )
         
         # Apply tag filter if provided
         if tag:
-            query = query.filter(Post.tags.contains([tag]))
+            # Use JSON search for tags stored as JSON text
+            query = query.filter(Post.tags.like(f'%"{tag}"%'))
         
         # Get total count for pagination info
         total = query.count()
@@ -645,8 +800,8 @@ def get_trending_topics():
         tag_scores = {}
         
         for post in recent_posts:
-            if post.tags:
-                for tag in post.tags:
+            if post.tags_list:
+                for tag in post.tags_list:
                     if tag not in tag_scores:
                         tag_scores[tag] = {
                             'tag': tag,
@@ -685,11 +840,13 @@ def get_trending_topics():
 @authenticated_only
 def get_post_by_id(post_id):
     # OPTIMIZED: Load all data for single post view
+    # Convert UUID to string for database query
+    post_id_str = str(post_id)
     post = Post.query.options(
         db.joinedload(Post.author),
         db.joinedload(Post.comments).joinedload(Comment.author),
         db.joinedload(Post.reactions)
-    ).get(post_id)
+    ).get(post_id_str)
     
     if not post:
         return jsonify({"error": "Post not found"}), 404
@@ -698,7 +855,9 @@ def get_post_by_id(post_id):
 @app.route('/api/posts/<uuid:post_id>', methods=['PUT'])
 @role_required(['NURSE', 'ADMIN'])
 def update_post_text(post_id):
-    post = Post.query.get(post_id)
+    # Convert UUID to string for database query
+    post_id_str = str(post_id)
+    post = Post.query.get(post_id_str)
     if not post: return jsonify({"error": "Post not found"}), 404
 
     # Authorization check: only the author can edit
@@ -716,20 +875,23 @@ def update_post_text(post_id):
         return jsonify({"error": "Tags must be an array"}), 400
     
     post.text = text.strip()
-    post.tags = tags
+    # KEY CHANGE: Use the property setter
+    post.tags_list = tags
     db.session.commit()
     return jsonify(post.to_dict()), 200
 
 @app.route('/api/users/<uuid:user_id>/posts', methods=['GET'])
 @authenticated_only
 def get_user_posts(user_id):
-    user = User.query.get(user_id)
+    # Convert UUID to string for database query
+    user_id_str = str(user_id)
+    user = User.query.get(user_id_str)
     if not user: return jsonify({"error": "User not found"}), 404
     
     # OPTIMIZED: Use fast feed method for user posts
     posts = Post.query.options(
         db.joinedload(Post.author)
-    ).filter_by(author_id=user_id).order_by(Post.created_at.desc()).all()
+    ).filter_by(author_id=user_id_str).order_by(Post.created_at.desc()).all()
     
     return jsonify([post.to_dict_feed() for post in posts]), 200
  
@@ -772,7 +934,7 @@ def create_post():
     media_url, media_type, unique_filename = None, None, None
     if 'mediaFile' in request.files and request.files['mediaFile'].filename:
         media_file = request.files['mediaFile']
-        media_url = upload_to_storage(media_file, 'posts')
+        media_url, unique_filename = upload_to_storage(media_file, 'posts')
         if not media_url: return jsonify({"error": "Failed to upload media file"}), 500
         media_type = 'image' if media_file.content_type.startswith('image') else 'video'
     try:
@@ -781,9 +943,10 @@ def create_post():
             text=text, 
             media_url=media_url, 
             media_type=media_type,
-            display_name=display_name,
-            tags=tags
+            display_name=display_name
         )
+        # KEY CHANGE: Use the property setter
+        new_post.tags_list = tags
         db.session.add(new_post)
         db.session.commit()
         return jsonify(new_post.to_dict()), 201
@@ -803,14 +966,17 @@ def add_comment(post_id):
     text = data.get('text') if data else None
     parent_comment_id = data.get('parentCommentId') if data else None
     
+    # Convert UUID to string for database query
+    post_id_str = str(post_id)
+    
     if not text: 
         return jsonify({"error": "Comment text is required"}), 400
-    if not Post.query.get(post_id): 
+    if not Post.query.get(post_id_str): 
         return jsonify({"error": "Post not found"}), 404
     
     try:
         new_comment = Comment(
-            post_id=post_id, 
+            post_id=post_id_str, 
             author_id=request.user_id, 
             text=text,
             parent_comment_id=parent_comment_id
@@ -819,10 +985,10 @@ def add_comment(post_id):
         db.session.commit()
         
         # Update discussion analytics
-        update_discussion_analytics(post_id)
+        update_discussion_analytics(post_id_str)
         
         # Create notifications for relevant users
-        post = Post.query.get(post_id)
+        post = Post.query.get(post_id_str)
         if post and post.author_id != request.user_id:
             # Notify post author about new comment
             create_notification(
@@ -859,7 +1025,9 @@ def toggle_reaction(post_id):
         return jsonify({"error": "Invalid reaction type"}), 400
     
     try:
-        existing_reaction = Reaction.query.filter_by(post_id=post_id, user_id=request.user_id).first()
+        # Convert UUID to string for database query
+        post_id_str = str(post_id)
+        existing_reaction = Reaction.query.filter_by(post_id=post_id_str, user_id=request.user_id).first()
         action = "removed"
         
         if existing_reaction:
@@ -870,7 +1038,7 @@ def toggle_reaction(post_id):
                 existing_reaction.type = reaction_type
                 action = "changed"
         else:
-            new_reaction = Reaction(post_id=post_id, user_id=request.user_id, type=reaction_type)
+            new_reaction = Reaction(post_id=post_id_str, user_id=request.user_id, type=reaction_type)
             db.session.add(new_reaction)
             action = "added"
         
@@ -878,7 +1046,7 @@ def toggle_reaction(post_id):
         
         # Create notification for post author (if not their own post and reaction was added)
         if action == "added":
-            post = db.session.get(Post, post_id)
+            post = db.session.get(Post, post_id_str)
             if post and post.author_id != request.user_id:
                 user = db.session.get(User, request.user_id)
                 create_notification(
@@ -905,8 +1073,11 @@ def toggle_comment_reaction(comment_id):
         return jsonify({"error": "Invalid reaction type"}), 400
     
     try:
+        # Convert UUID to string for database query
+        comment_id_str = str(comment_id)
+        
         existing_reaction = CommentReaction.query.filter_by(
-            comment_id=comment_id, 
+            comment_id=comment_id_str, 
             user_id=request.user_id, 
             type=reaction_type
         ).first()
@@ -917,12 +1088,12 @@ def toggle_comment_reaction(comment_id):
         else:
             # Only remove reactions of different types, not all reactions
             CommentReaction.query.filter_by(
-                comment_id=comment_id, 
+                comment_id=comment_id_str, 
                 user_id=request.user_id
             ).filter(CommentReaction.type != reaction_type).delete()
             
             new_reaction = CommentReaction(
-                comment_id=comment_id,
+                comment_id=comment_id_str,
                 user_id=request.user_id,
                 type=reaction_type
             )
@@ -932,7 +1103,7 @@ def toggle_comment_reaction(comment_id):
         db.session.commit()
         
         # Update discussion analytics
-        comment = db.session.get(Comment, comment_id)
+        comment = db.session.get(Comment, comment_id_str)
         if comment:
             update_discussion_analytics(comment.post_id)
             
@@ -956,14 +1127,16 @@ def toggle_comment_reaction(comment_id):
 @app.route('/api/posts/<uuid:post_id>/discussion-analytics', methods=['GET'])
 def get_discussion_analytics(post_id):
     try:
-        analytics = DiscussionAnalytics.query.filter_by(post_id=post_id).first()
+        # Convert UUID to string for database query
+        post_id_str = str(post_id)
+        analytics = DiscussionAnalytics.query.filter_by(post_id=post_id_str).first()
         if not analytics:
             # Create initial analytics if none exist
-            analytics = DiscussionAnalytics(post_id=post_id)
+            analytics = DiscussionAnalytics(post_id=post_id_str)
             db.session.add(analytics)
             db.session.commit()
-            update_discussion_analytics(post_id)
-            analytics = DiscussionAnalytics.query.filter_by(post_id=post_id).first()
+            update_discussion_analytics(post_id_str)
+            analytics = DiscussionAnalytics.query.filter_by(post_id=post_id_str).first()
         
         return jsonify(analytics.to_dict()), 200
     except Exception as e:
@@ -973,30 +1146,34 @@ def get_discussion_analytics(post_id):
 def update_discussion_analytics(post_id):
     """Update discussion analytics for a post"""
     try:
+        # post_id is already a string when called from other functions
+        # but ensure it's a string for consistency
+        post_id_str = str(post_id) if not isinstance(post_id, str) else post_id
+        
         # Get or create analytics record
-        analytics = DiscussionAnalytics.query.filter_by(post_id=post_id).first()
+        analytics = DiscussionAnalytics.query.filter_by(post_id=post_id_str).first()
         if not analytics:
-            analytics = DiscussionAnalytics(post_id=post_id)
+            analytics = DiscussionAnalytics(post_id=post_id_str)
             db.session.add(analytics)
         
         # Count comments and replies
-        comments = Comment.query.filter_by(post_id=post_id, parent_comment_id=None).all()
-        replies = Comment.query.filter_by(post_id=post_id).filter(Comment.parent_comment_id.isnot(None)).all()
+        comments = Comment.query.filter_by(post_id=post_id_str, parent_comment_id=None).all()
+        replies = Comment.query.filter_by(post_id=post_id_str).filter(Comment.parent_comment_id.isnot(None)).all()
         
         # Count reactions
         upvotes = CommentReaction.query.join(Comment).filter(
-            Comment.post_id == post_id,
+            Comment.post_id == post_id_str,
             CommentReaction.type == 'UPVOTE'
         ).count()
         
         downvotes = CommentReaction.query.join(Comment).filter(
-            Comment.post_id == post_id,
+            Comment.post_id == post_id_str,
             CommentReaction.type == 'DOWNVOTE'
         ).count()
         
         # Count expert participants
         expert_participants = db.session.query(User.id).join(Comment).filter(
-            Comment.post_id == post_id,
+            Comment.post_id == post_id_str,
             User.expertise_level == 'EXPERT'
         ).distinct().count()
         
@@ -1113,8 +1290,10 @@ def get_notifications():
 def mark_notification_read(notification_id):
     """Mark a notification as read"""
     try:
+        # Convert UUID to string for database query
+        notification_id_str = str(notification_id)
         notification = Notification.query.filter_by(
-            id=notification_id, 
+            id=notification_id_str, 
             user_id=request.user_id
         ).first()
         
@@ -1171,12 +1350,29 @@ def get_pending_users():
 @app.route('/api/admin/approve-user/<uuid:user_id>', methods=['PUT'])
 @role_required(['ADMIN'])
 def approve_user(user_id):
-    # ... (existing code)
-    user_to_approve = User.query.filter_by(id=user_id, role='PENDING').first()
-    if not user_to_approve: return jsonify({"error": "User not found or not in PENDING status"}), 404
-    user_to_approve.role = 'NURSE'
-    db.session.commit()
-    return jsonify({ "message": f"User {user_id} approved as NURSE", "user": user_to_approve.to_dict() }), 200
+    """
+    Approve a pending user and change their role to NURSE.
+    """
+    try:
+        # Convert UUID to string for database query
+        user_id_str = str(user_id)
+        
+        user_to_approve = User.query.filter_by(id=user_id_str, role='PENDING').first()
+        if not user_to_approve:
+            return jsonify({"error": "User not found or not in PENDING status"}), 404
+        
+        user_to_approve.role = 'NURSE'
+        db.session.commit()
+        
+        return jsonify({
+            "message": f"User {user_to_approve.name} approved as NURSE",
+            "user": user_to_approve.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error approving user: {e}")
+        return jsonify({"error": "Failed to approve user"}), 500
 
 @app.route('/api/admin/users', methods=['GET'])
 @role_required(['ADMIN'])
@@ -1206,7 +1402,9 @@ def update_user_role(user_id):
         if new_role not in ['NURSE', 'ADMIN', 'INACTIVE']:
             return jsonify({"error": "Invalid role. Must be NURSE, ADMIN, or INACTIVE"}), 400
         
-        user = User.query.get(user_id)
+        # Convert UUID to string for database query
+        user_id_str = str(user_id)
+        user = User.query.get(user_id_str)
         if not user:
             return jsonify({"error": "User not found"}), 404
         
@@ -1231,7 +1429,9 @@ def delete_user(user_id):
     Delete a user account.
     """
     try:
-        user = User.query.get(user_id)
+        # Convert UUID to string for database query
+        user_id_str = str(user_id)
+        user = User.query.get(user_id_str)
         if not user:
             return jsonify({"error": "User not found"}), 404
         
@@ -1290,7 +1490,7 @@ def create_resource():
     if resource_type == 'FILE':
         if 'file' not in request.files or not request.files['file'].filename:
             return jsonify({"error": "A file is required for type 'FILE'"}), 400
-        file_url = upload_to_storage(request.files['file'], 'resources')
+        file_url, unique_filename = upload_to_storage(request.files['file'], 'resources')
         if not file_url:
             return jsonify({"error": "Failed to upload file"}), 500
         new_resource.file_url = file_url
@@ -1317,7 +1517,9 @@ def get_pending_resources():
 @app.route('/api/admin/approve-resource/<uuid:resource_id>', methods=['PUT'])
 @role_required(['ADMIN'])
 def approve_resource(resource_id):
-    resource_to_approve = Resource.query.filter_by(id=resource_id, status='PENDING').first()
+    # Convert UUID to string for database query
+    resource_id_str = str(resource_id)
+    resource_to_approve = Resource.query.filter_by(id=resource_id_str, status='PENDING').first()
     if not resource_to_approve:
         return jsonify({"error": "Resource not found or not in PENDING status"}), 404
     resource_to_approve.status = 'APPROVED'
@@ -1359,7 +1561,7 @@ def update_resource(resource_id):
     file_url, unique_filename = None, None
     if 'file' in request.files and request.files['file'].filename:
         # Upload new file
-        file_url = upload_to_storage(request.files['file'], 'resources')
+        file_url, unique_filename = upload_to_storage(request.files['file'], 'resources')
         if not file_url:
             return jsonify({"error": "Failed to upload file"}), 500
         
@@ -1397,7 +1599,7 @@ def delete_resource(resource_id):
         # Clean up associated file from storage
         if resource.file_url:
             file_filename = resource.file_url.split('/')[-1]  # Extract filename from URL
-            cleanup_storage_file(file_filename, SUPABASE_RESOURCES_BUCKET)
+            cleanup_storage_file(file_filename, 'resources')
         
         # Delete the resource record
         db.session.delete(resource)
@@ -1442,7 +1644,7 @@ def create_blog():
 
     cover_image_url, unique_filename = None, None
     if 'coverImage' in request.files and request.files['coverImage'].filename:
-        cover_image_url = upload_to_storage(request.files['coverImage'], 'blogs')
+        cover_image_url, unique_filename = upload_to_storage(request.files['coverImage'], 'blogs')
         if not cover_image_url:
             return jsonify({"error": "Failed to upload cover image"}), 500
         new_blog.cover_image_url = cover_image_url
@@ -1511,7 +1713,9 @@ def get_pending_blogs():
 @app.route('/api/admin/approve-blog/<uuid:blog_id>', methods=['PUT'])
 @role_required(['ADMIN'])
 def approve_blog(blog_id):
-    blog_to_approve = Blog.query.filter_by(id=blog_id, status='PENDING').first()
+    # Convert UUID to string for database query
+    blog_id_str = str(blog_id)
+    blog_to_approve = Blog.query.filter_by(id=blog_id_str, status='PENDING').first()
     if not blog_to_approve:
         return jsonify({"error": "Blog not found or not in PENDING status"}), 404
     blog_to_approve.status = 'APPROVED'
@@ -1528,8 +1732,8 @@ def upload_blog_image():
     
     image_file = request.files['imageFile']
     
-    # Upload the image to the blogs bucket
-    image_url, unique_filename = upload_to_storage(image_file, SUPABASE_BLOGS_BUCKET)
+    # Upload the image to the blogs folder
+    image_url, unique_filename = upload_to_storage(image_file, 'blogs')
     if not image_url:
         return jsonify({"error": "Failed to upload image file"}), 500
     
@@ -1564,14 +1768,14 @@ def update_blog(blog_id):
     cover_image_url, unique_filename = None, None
     if 'coverImage' in request.files and request.files['coverImage'].filename:
         # Upload new cover image
-        cover_image_url, unique_filename = upload_to_storage(request.files['coverImage'], SUPABASE_BLOGS_BUCKET)
+        cover_image_url, unique_filename = upload_to_storage(request.files['coverImage'], 'blogs')
         if not cover_image_url:
             return jsonify({"error": "Failed to upload cover image"}), 500
         
         # If there was a previous cover image, clean it up
         if blog.cover_image_url:
             old_filename = blog.cover_image_url.split('/')[-1]  # Extract filename from URL
-            cleanup_storage_file(old_filename, SUPABASE_BLOGS_BUCKET)
+            cleanup_storage_file(old_filename, 'blogs')
         
         blog.cover_image_url = cover_image_url
     
@@ -1580,7 +1784,7 @@ def update_blog(blog_id):
         return jsonify(blog.to_dict()), 200
     except Exception as e:
         db.session.rollback()
-        if unique_filename: cleanup_storage_file(unique_filename, SUPABASE_BLOGS_BUCKET)
+        if unique_filename: cleanup_storage_file(unique_filename, 'blogs')
         app.logger.error(f"Error updating blog: {e}")
         return jsonify({"error": "Failed to update blog"}), 500
 
@@ -1599,7 +1803,7 @@ def delete_blog(blog_id):
         # Clean up associated images from storage
         if blog.cover_image_url:
             cover_filename = blog.cover_image_url.split('/')[-1]  # Extract filename from URL
-            cleanup_storage_file(cover_filename, SUPABASE_BLOGS_BUCKET)
+            cleanup_storage_file(cover_filename, 'blogs')
         
         # Delete the blog record
         db.session.delete(blog)
@@ -1673,7 +1877,9 @@ def create_broadcast_message():
 def update_broadcast_message(message_id):
     """Update a broadcast message"""
     try:
-        message = BroadcastMessage.query.get(message_id)
+        # Convert UUID to string for database query
+        message_id_str = str(message_id)
+        message = BroadcastMessage.query.get(message_id_str)
         if not message:
             return jsonify({"error": "Broadcast message not found"}), 404
         
@@ -1704,7 +1910,9 @@ def update_broadcast_message(message_id):
 def delete_broadcast_message(message_id):
     """Delete a broadcast message"""
     try:
-        message = BroadcastMessage.query.get(message_id)
+        # Convert UUID to string for database query
+        message_id_str = str(message_id)
+        message = BroadcastMessage.query.get(message_id_str)
         if not message:
             return jsonify({"error": "Broadcast message not found"}), 404
         
@@ -1729,8 +1937,14 @@ def health_check():
 if __name__ == '__main__':
     print("🚀 Starting PulseLoopCare with Local File Storage...")
     print(f"📁 Local file storage: {UPLOAD_FOLDER}")
-    print("🗄️ Database: Supabase")
-    print("🌐 Server: http://localhost:5000")
+    # Update this message to reflect the database type
+    if 'mysql' in DB_CONNECTION_STRING:
+        print("🗄️ Database: MySQL")
+    elif 'postgresql' in DB_CONNECTION_STRING:
+        print("🗄️ Database: PostgreSQL")
+    else:
+        print("🗄️ Database: Unknown")
+    print(f"🌐 Server: http://localhost:5000")
     print("=" * 60)
     
     socketio.run(app, debug=True, port=5000)

@@ -83,68 +83,127 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
 
     return (
         <header className="bg-gradient-to-r from-indigo-600 via-teal-600 to-cyan-600 shadow-xl border-b border-indigo-500 sticky top-0 z-20">
-            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-                <div className="bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30">
-                    <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-indigo-800" />
-                </div>
-                <nav className="flex items-center space-x-1">
-                    {user ? (
-                        <>
-                            {/* Search Bar */}
-                            <div className="hidden lg:block mr-4">
-                                <SearchBar 
-                                    onResultClick={(result) => {
-                                        if (onSearchResult) {
-                                            onSearchResult(result);
-                                        }
-                                        // Navigate based on result type
-                                        if (result.type === 'post') {
-                                            navigateTo('FEED');
-                                        } else if (result.type === 'resource') {
-                                            navigateTo('RESOURCES');
-                                        } else if (result.type === 'blog') {
-                                            navigateTo('BLOGS');
-                                        }
-                                    }}
-                                    placeholder="Search posts, resources, blogs..."
-                                />
-                            </div>
-                            
-                            <div className="hidden md:flex items-center space-x-1 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/20">
-                                <NavButton view="FEED">Feed</NavButton>
-                                <NavButton view="RESOURCES">Resources</NavButton>
-                                <NavButton view="BLOGS">Blogs</NavButton>
-                                {user.role === Role.ADMIN && <NavButton view="ADMIN">Admin Panel</NavButton>}
-                            </div>
-                            
-                            {/* Notification Bell */}
-                            {onOpenNotifications && (
-                                <NotificationBell onOpenNotifications={onOpenNotifications} />
-                            )}
-                            
-                            <div className="relative ml-3" ref={dropdownRef}>
-                                <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
-                                    <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
-                                        <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
-                                    </div>
-                                    <span className="font-bold text-indigo-900 hidden sm:block">{user.name}</span>
-                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                </button>
-                                {isDropdownOpen && (
-                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-30">
-                                        <a onClick={() => { navigateTo('PROFILE'); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">My Profile</a>
-                                        <a onClick={() => { logout(); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">Logout</a>
-                                    </div>
+            <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
+                {/* Mobile Layout */}
+                <div className="lg:hidden flex flex-col space-y-3">
+                    {/* Top Row: Logo and User Actions */}
+                    <div className="flex justify-between items-center">
+                        <div className="bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 flex-shrink-0">
+                            <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-indigo-800" />
+                        </div>
+                        {user && (
+                            <div className="flex items-center space-x-2">
+                                {/* Notification Bell */}
+                                {onOpenNotifications && (
+                                    <NotificationBell onOpenNotifications={onOpenNotifications} />
                                 )}
+                                
+                                {/* User Avatar Dropdown */}
+                                <div className="relative" ref={dropdownRef}>
+                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                        <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
+                                            <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
+                                        </div>
+                                        <span className="font-bold text-indigo-900 text-sm">{user.name.split(' ')[0]}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                    </button>
+                                    {isDropdownOpen && (
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-30">
+                                            <a onClick={() => { navigateTo('PROFILE'); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">My Profile</a>
+                                            <a onClick={() => { logout(); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">Logout</a>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={() => navigateTo('LOGIN')} className="text-white hover:text-cyan-200 font-bold px-4 py-2.5 rounded-xl hover:bg-white/20 transition-all duration-300 backdrop-blur-sm">Login</button>
-                            <button onClick={() => navigateTo('SIGNUP')} className="px-6 py-2.5 bg-white/95 backdrop-blur-md text-indigo-800 rounded-xl hover:bg-white hover:shadow-xl transition-all duration-300 shadow-lg font-bold border border-white/30">Sign Up</button>
-                        </>
+                        )}
+                    </div>
+                    
+                    {/* Mobile Search Bar */}
+                    {user && (
+                        <div className="w-full">
+                            <SearchBar 
+                                onResultClick={(result) => {
+                                    if (onSearchResult) {
+                                        onSearchResult(result);
+                                    }
+                                    if (result.type === 'post') {
+                                        navigateTo('FEED');
+                                    } else if (result.type === 'resource') {
+                                        navigateTo('RESOURCES');
+                                    } else if (result.type === 'blog') {
+                                        navigateTo('BLOGS');
+                                    }
+                                }}
+                                placeholder="Search posts, resources, blogs..."
+                            />
+                        </div>
                     )}
-                </nav>
+                </div>
+
+                {/* Desktop Layout */}
+                <div className="hidden lg:flex justify-between items-center">
+                    <div className="bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30">
+                        <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-indigo-800" />
+                    </div>
+                    <nav className="flex items-center space-x-1">
+                        {user ? (
+                            <>
+                                {/* Search Bar */}
+                                <div className="hidden lg:block mr-4">
+                                    <SearchBar 
+                                        onResultClick={(result) => {
+                                            if (onSearchResult) {
+                                                onSearchResult(result);
+                                            }
+                                            // Navigate based on result type
+                                            if (result.type === 'post') {
+                                                navigateTo('FEED');
+                                            } else if (result.type === 'resource') {
+                                                navigateTo('RESOURCES');
+                                            } else if (result.type === 'blog') {
+                                                navigateTo('BLOGS');
+                                            }
+                                        }}
+                                        placeholder="Search posts, resources, blogs..."
+                                    />
+                                </div>
+                                
+                                <div className="hidden md:flex items-center space-x-1 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/20">
+                                    <NavButton view="FEED">Feed</NavButton>
+                                    <NavButton view="RESOURCES">Resources</NavButton>
+                                    <NavButton view="BLOGS">Blogs</NavButton>
+                                    {user.role === Role.ADMIN && <NavButton view="ADMIN">Admin Panel</NavButton>}
+                                </div>
+                                
+                                {/* Notification Bell */}
+                                {onOpenNotifications && (
+                                    <NotificationBell onOpenNotifications={onOpenNotifications} />
+                                )}
+                                
+                                <div className="relative ml-3" ref={dropdownRef}>
+                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                        <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
+                                            <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
+                                        </div>
+                                        <span className="font-bold text-indigo-900 hidden sm:block">{user.name}</span>
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                    </button>
+                                    {isDropdownOpen && (
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-30">
+                                            <a onClick={() => { navigateTo('PROFILE'); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">My Profile</a>
+                                            <a onClick={() => { logout(); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">Logout</a>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => navigateTo('LOGIN')} className="text-white hover:text-cyan-200 font-bold px-4 py-2.5 rounded-xl hover:bg-white/20 transition-all duration-300 backdrop-blur-sm">Login</button>
+                                <button onClick={() => navigateTo('SIGNUP')} className="px-6 py-2.5 bg-white/95 backdrop-blur-md text-indigo-800 rounded-xl hover:bg-white hover:shadow-xl transition-all duration-300 shadow-lg font-bold border border-white/30">Sign Up</button>
+                            </>
+                        )}
+                    </nav>
+                </div>
             </div>
         </header>
     );

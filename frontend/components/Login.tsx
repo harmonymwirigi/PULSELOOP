@@ -4,9 +4,10 @@ import Spinner from './Spinner';
 
 interface LoginProps {
     onSwitchToSignup: () => void;
+    onForgotPassword: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onSwitchToSignup }) => {
+const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onForgotPassword }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -46,7 +47,7 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup }) => {
                         required
                     />
                 </div>
-                <div className="mb-6">
+                <div className="mb-4">
                     <label className="block text-gray-700 font-medium mb-2" htmlFor="password">Password</label>
                     <input
                         type="password"
@@ -56,6 +57,15 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup }) => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
                         required
                     />
+                </div>
+                <div className="mb-6 text-right">
+                    <button
+                        type="button"
+                        onClick={onForgotPassword}
+                        className="text-sm text-teal-600 hover:text-teal-500 hover:underline"
+                    >
+                        Forgot Password?
+                    </button>
                 </div>
                 <button type="submit" disabled={loading} className="w-full bg-teal-500 text-white py-2.5 rounded-md hover:bg-teal-600 transition-colors flex items-center justify-center disabled:bg-teal-300 font-semibold">
                     {loading ? <Spinner /> : 'Login'}

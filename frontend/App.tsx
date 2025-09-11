@@ -16,6 +16,7 @@ import SinglePostView from './components/SinglePostView';
 import Chatbot from './components/Chatbot';
 import SingleResourceView from './components/SingleResourceView';
 import SingleBlogView from './components/SingleBlogView';
+import ResetPasswordPage from './components/ResetPasswordPage';
 import ProfileCompletionBanner from './components/ProfileCompletionBanner';
 import InviteModal from './components/InviteModal';
 import Invitations from './components/Invitations';
@@ -32,6 +33,25 @@ import BroadcastMessageComponent from './components/BroadcastMessage';
 const AppContent: React.FC = () => {
     const { user, loading } = useAuth();
     const [currentView, setCurrentView] = useState<View>('FEED');
+    
+    // Check for reset password token in URL
+    React.useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const resetToken = urlParams.get('reset_token');
+        const invitationToken = urlParams.get('token');
+        const pathname = window.location.pathname;
+        
+        // Check if this is a reset password URL
+        if (resetToken && pathname === '/reset-password') {
+            console.log('Reset password token detected:', resetToken);
+            setCurrentView('RESET_PASSWORD');
+        }
+        // Check if this is an invitation URL (only if no reset_token)
+        else if (invitationToken && pathname === '/' && !resetToken) {
+            console.log('Invitation token detected:', invitationToken);
+            // Handle invitation logic here if needed
+        }
+    }, []);
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
     const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
@@ -84,6 +104,10 @@ const AppContent: React.FC = () => {
     }
 
     if (!user) {
+        // Show reset password page if there's a token in the URL
+        if (currentView === 'RESET_PASSWORD') {
+            return <ResetPasswordPage navigateTo={navigateTo} />;
+        }
         return <LandingPage />;
     }
 
@@ -97,6 +121,7 @@ const AppContent: React.FC = () => {
             case 'SINGLE_POST': return selectedPost && <SinglePostView post={selectedPost} navigateTo={navigateTo} />;
             case 'SINGLE_RESOURCE': return selectedResource && <SingleResourceView resource={selectedResource} navigateTo={navigateTo} />;
             case 'SINGLE_BLOG': return selectedBlog && <SingleBlogView blog={selectedBlog} navigateTo={navigateTo} />;
+            case 'RESET_PASSWORD': return <ResetPasswordPage navigateTo={navigateTo} />;
             case 'ADMIN': 
                 return user.role === Role.ADMIN 
                     ? <AdminDashboard /> 
@@ -150,7 +175,7 @@ const AppContent: React.FC = () => {
                 }}
             />
             <InviteModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
-            <main className="container mx-auto px-4 py-8 flex-grow relative">
+            <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 flex-grow relative">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-5 pointer-events-none">
                     <div className="absolute inset-0" style={{
@@ -168,7 +193,7 @@ const AppContent: React.FC = () => {
                 <BroadcastMessageComponent />
                 
                 {/* Mobile Search Bar */}
-                <div className="lg:hidden mb-6">
+                <div className="lg:hidden mb-4 px-2">
                     <SearchBar 
                         onResultClick={(result) => {
                             if (result.type === 'post') {
@@ -187,21 +212,6 @@ const AppContent: React.FC = () => {
                         {/* Left Sidebar */}
                         <aside className="hidden lg:block lg:col-span-1">
                             <div className="sticky top-24 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 space-y-4">
-                                {/* Mobile Search Bar */}
-                                <div className="lg:hidden">
-                                    <SearchBar 
-                                        onResultClick={(result) => {
-                                            if (result.type === 'post') {
-                                                navigateTo('FEED');
-                                            } else if (result.type === 'resource') {
-                                                navigateTo('RESOURCES');
-                                            } else if (result.type === 'blog') {
-                                                navigateTo('BLOGS');
-                                            }
-                                        }}
-                                        placeholder="Search..."
-                                    />
-                                </div>
                                 <NavLink view="FEED" label="Feed" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>} />
                                 <NavLink view="RESOURCES" label="Resources" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9" /></svg>} />
                                 <NavLink view="BLOGS" label="Blogs" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>} />
@@ -229,7 +239,7 @@ const AppContent: React.FC = () => {
 
                         {/* Main Content */}
                         <div className="lg:col-span-2 relative">
-                           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+                           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
                                <MainContent />
                            </div>
                         </div>
@@ -249,13 +259,13 @@ const AppContent: React.FC = () => {
                     </div>
                 ) : (
                     <div className="relative">
-                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
                             <MainContent />
                         </div>
                         {/* Mobile Trending Topics - Show below main content on mobile */}
                         {currentView === 'FEED' && (
-                            <div className="mt-8 lg:hidden">
-                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+                            <div className="mt-6 lg:hidden">
+                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
                                     <TrendingTopics 
                                         onTagClick={(tag) => {
                                             setFeedTagFilter(tag);

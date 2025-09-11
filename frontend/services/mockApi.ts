@@ -244,12 +244,32 @@ export const approveResource = async (resourceId: string): Promise<Resource> => 
 
 export const getPendingBlogs = async (): Promise<Blog[]> => {
     const response = await fetchWithAuth('/admin/pending-blogs');
-    return handleApiResponse(response);
+    const blogs = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return blogs.map((blog: Blog) => ({
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    }));
 };
 
 export const approveBlog = async (blogId: string): Promise<Blog> => {
     const response = await fetchWithAuth(`/admin/approve-blog/${blogId}`, { method: 'PUT' });
-    return handleApiResponse(response);
+    const blog = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return {
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    };
 };
 
 
@@ -277,7 +297,17 @@ export const createResource = async (data: CreateResourceData): Promise<Resource
 // --- BLOGS ---
 export const getBlogs = async (): Promise<Blog[]> => {
     const response = await fetchWithAuth('/blogs');
-    return handleApiResponse(response);
+    const blogs = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return blogs.map((blog: Blog) => ({
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    }));
 };
 
 export const createBlog = async (data: CreateBlogData): Promise<Blog> => {
@@ -292,7 +322,17 @@ export const createBlog = async (data: CreateBlogData): Promise<Blog> => {
         method: 'POST',
         body: formData,
     });
-    return handleApiResponse(response);
+    const blog = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return {
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    };
 };
 
 // --- AI CHAT ---
@@ -420,6 +460,29 @@ export const updateBroadcastMessage = async (messageId: string, data: { title?: 
 export const deleteBroadcastMessage = async (messageId: string): Promise<{ message: string }> => {
     const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}`, {
         method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
+// Password Reset Functions
+export const forgotPassword = async (email: string): Promise<{ message: string }> => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/forgot-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+    });
+    return handleApiResponse(response);
+};
+
+export const resetPassword = async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/reset-password`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, newPassword }),
     });
     return handleApiResponse(response);
 };
