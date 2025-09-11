@@ -24,11 +24,31 @@ const testimonials = [
     }
 ];
 
+const heroMessages = [
+    {
+        title: "Connecting Healthcare Professionals Together",
+        subtitle: ""
+    },
+    {
+        title: "AI-Powered Medical Collaboration",
+        subtitle: ""
+    },
+    {
+        title: "Secure Peer Network",
+        subtitle: ""
+    },
+    {
+        title: "Shared Resource Hub",
+        subtitle: ""
+    }
+];
+
 const LandingPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<'login' | 'signup'>('login');
     const [invitationToken, setInvitationToken] = useState<string | null>(null);
     const [currentTestimonial, setCurrentTestimonial] = useState(0);
+    const [currentHeroMessage, setCurrentHeroMessage] = useState(0);
     const [showPolicy, setShowPolicy] = useState(false);
 
     const openModal = (mode: 'login' | 'signup', token: string | null = null) => {
@@ -60,12 +80,27 @@ const LandingPage: React.FC = () => {
         setCurrentTestimonial(prev => (prev - 1 + testimonials.length) % testimonials.length);
     };
 
+    const nextHeroMessage = useCallback(() => {
+        setCurrentHeroMessage(prev => (prev + 1) % heroMessages.length);
+    }, []);
+
+    const prevHeroMessage = () => {
+        setCurrentHeroMessage(prev => (prev - 1 + heroMessages.length) % heroMessages.length);
+    };
+
     useEffect(() => {
-        const timer = setInterval(() => {
+        const testimonialTimer = setInterval(() => {
             nextTestimonial();
         }, 5000);
-        return () => clearInterval(timer);
+        return () => clearInterval(testimonialTimer);
     }, [nextTestimonial]);
+
+    useEffect(() => {
+        const heroTimer = setInterval(() => {
+            nextHeroMessage();
+        }, 4000);
+        return () => clearInterval(heroTimer);
+    }, [nextHeroMessage]);
 
     if (showPolicy) {
         return <PrivacyPolicy onClose={() => setShowPolicy(false)} />;
@@ -76,30 +111,81 @@ const LandingPage: React.FC = () => {
             {isModalOpen && <AuthModal initialMode={modalMode} onClose={() => setIsModalOpen(false)} invitationToken={invitationToken} onViewPolicy={viewPolicy} />}
             
             {/* Header */}
-            <header className="absolute top-0 left-0 w-full z-10 py-4 px-4 sm:px-8">
-                <div className="container mx-auto flex justify-between items-center">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg">
+            <header className="absolute top-0 left-0 w-full z-10 py-6 px-4 sm:px-8">
+                <div className="container mx-auto flex justify-center items-center">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl px-6 py-4 shadow-xl border border-white/20">
                         <Logo textColorClassName="text-teal-600" />
-                    </div>
-                    <div className="space-x-2">
-                        <button onClick={() => openModal('login')} className="px-4 py-2 text-gray-700 font-medium rounded-md hover:bg-gray-100 transition-colors bg-white/90 backdrop-blur-sm">Login</button>
-                        <button onClick={() => openModal('signup')} className="px-4 py-2 bg-teal-500 text-white font-medium rounded-md hover:bg-teal-600 transition-colors shadow-lg">Sign Up</button>
                     </div>
                 </div>
             </header>
 
             <main>
                 {/* Hero Section */}
-                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
+                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-40 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
-                    <div className="relative z-10 px-4">
-                        <div className="mb-4">
-                            <span className="inline-block bg-teal-500/20 backdrop-blur-sm text-teal-300 px-4 py-2 rounded-full text-sm font-semibold border border-teal-400/30">
-                                🏥 Trusted by 10,000+ Healthcare Professionals
-                            </span>
+                    <div className="relative z-10 px-4 max-w-6xl mx-auto">
+                        {/* Trust Badge - Positioned at top */}
+                        <div className="mb-8 sm:mb-10">
+                            <div className="inline-flex items-center bg-white/10 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-semibold border border-white/20 shadow-lg">
+                                <svg className="w-5 h-5 mr-2 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                Trusted by 10,000+ Healthcare Professionals
+                            </div>
                         </div>
-                        <h2 className="text-4xl md:text-6xl font-extrabold text-white leading-tight mb-6 drop-shadow-lg">Connecting Healthcare Professionals Together</h2>
-                        <p className="text-lg md:text-xl text-gray-100 max-w-3xl mx-auto mb-8 drop-shadow-md">A trusted, secure social space where licensed healthcare professionals connect, share real experiences through stories and build lasting connections in a space just made for you.</p>
+                        
+                        {/* Hero Message Carousel */}
+                        <div className="relative max-w-6xl mx-auto mb-10">
+                            <div className="overflow-hidden relative" style={{ height: '16rem' }}>
+                                {heroMessages.map((message, index) => (
+                                    <div 
+                                        key={index}
+                                        className="absolute w-full h-full transition-transform duration-500 ease-in-out flex flex-col justify-center"
+                                        style={{ transform: `translateX(${(index - currentHeroMessage) * 100}%)` }}
+                                    >
+                                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-4 drop-shadow-lg text-center">
+                                            {message.title}
+                                        </h1>
+                                        <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-4xl mx-auto drop-shadow-md leading-relaxed text-center">
+                                            {message.subtitle}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            {/* Navigation Controls */}
+                            <button 
+                                onClick={prevHeroMessage} 
+                                className="absolute top-1/2 -left-4 md:-left-16 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-md hover:bg-white/30 transition-all duration-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                            <button 
+                                onClick={nextHeroMessage} 
+                                className="absolute top-1/2 -right-4 md:-right-16 transform -translate-y-1/2 bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-md hover:bg-white/30 transition-all duration-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                            </button>
+                            
+                            {/* Dots Indicator */}
+                            <div className="flex justify-center mt-6 space-x-2">
+                                {heroMessages.map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setCurrentHeroMessage(index)}
+                                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                            index === currentHeroMessage 
+                                                ? 'bg-white shadow-lg' 
+                                                : 'bg-white/40 hover:bg-white/60'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                         
                         {/* Key Benefits */}
                         <div className="flex flex-wrap justify-center gap-6 mb-8 text-sm text-gray-200">
@@ -123,15 +209,16 @@ const LandingPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                            <button onClick={() => openModal('signup')} className="px-8 py-4 bg-teal-500 text-white font-bold rounded-full hover:bg-teal-600 transition-all duration-300 hover:scale-105 text-lg shadow-lg hover:shadow-xl flex items-center">
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {/* Call to Action Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+                            <button onClick={() => openModal('signup')} className="group px-10 py-5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full hover:from-teal-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 text-lg shadow-2xl hover:shadow-3xl flex items-center min-w-[200px] justify-center">
+                                <svg className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                 </svg>
                                 Join the Community
                             </button>
-                            <button onClick={() => openModal('login')} className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white font-bold rounded-full hover:bg-white/30 transition-all duration-300 text-lg border border-white/30 flex items-center">
-                                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button onClick={() => openModal('login')} className="px-10 py-5 bg-white/15 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/25 transition-all duration-300 text-lg border-2 border-white/30 hover:border-white/50 flex items-center min-w-[200px] justify-center">
+                                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                 </svg>
                                 Sign In
@@ -139,13 +226,21 @@ const LandingPage: React.FC = () => {
                         </div>
                         
                         {/* Trust Indicators */}
-                        <div className="mt-12 text-center">
-                            <p className="text-sm text-gray-300 mb-4">Trusted by professionals from</p>
-                            <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
-                                <div className="text-white font-semibold">Mayo Clinic</div>
-                                <div className="text-white font-semibold">Johns Hopkins</div>
-                                <div className="text-white font-semibold">Cleveland Clinic</div>
-                                <div className="text-white font-semibold">Mass General</div>
+                        <div className="text-center">
+                            <p className="text-sm text-gray-300 mb-6 font-medium">Trusted by professionals from</p>
+                            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-8 opacity-70">
+                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                                    <span className="text-white font-semibold text-sm sm:text-base">Mayo Clinic</span>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                                    <span className="text-white font-semibold text-sm sm:text-base">Johns Hopkins</span>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                                    <span className="text-white font-semibold text-sm sm:text-base">Cleveland Clinic</span>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
+                                    <span className="text-white font-semibold text-sm sm:text-base">Mass General</span>
+                                </div>
                             </div>
                         </div>
                     </div>
