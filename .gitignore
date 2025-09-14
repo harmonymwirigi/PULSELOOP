@@ -136,10 +136,18 @@ backend/uploads/avatars/*
 backend/uploads/blogs/*
 backend/uploads/posts/*
 backend/uploads/resources/*
+backend/uploads/media/*
+backend/uploads/broadcasts/*
 !backend/uploads/avatars/.gitkeep
 !backend/uploads/blogs/.gitkeep
 !backend/uploads/posts/.gitkeep
 !backend/uploads/resources/.gitkeep
+!backend/uploads/media/.gitkeep
+!backend/uploads/broadcasts/.gitkeep
+
+# Database Migrations (ignore migration files but keep structure)
+backend/migrations/versions/*.py
+!backend/migrations/versions/.gitkeep
 
 # Temporary files
 *.tmp

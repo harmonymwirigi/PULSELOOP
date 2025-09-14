@@ -3,7 +3,7 @@ import { getBlogs, createBlog } from '../services/mockApi';
 import { Blog, CreateBlogData } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from './Spinner';
-import RichTextEditor from './RichTextEditor';
+import QuillRichTextEditor from './QuillRichTextEditor';
 
 interface BlogsProps {
     navigateToBlog: (blog: Blog) => void;
@@ -152,11 +152,12 @@ const CreateBlogForm: React.FC<{ onCreate: (data: CreateBlogData) => Promise<voi
             <form onSubmit={handleSubmit} className="space-y-4">
                 <input type="text" placeholder="Blog Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500" required />
                 
-                <RichTextEditor 
-                    value={content}
+                <QuillRichTextEditor 
+                    key="blog-editor"
+                    content={content}
                     onChange={setContent}
                     placeholder="Write your article here..."
-                    minHeight="250px"
+                    height="400px"
                 />
 
                 <div>

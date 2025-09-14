@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getResources, createResource } from '../services/mockApi';
 import { Resource, ResourceType, CreateResourceData } from '../types';
 import Spinner from './Spinner';
-import RichTextEditor from './RichTextEditor';
+import QuillRichTextEditor from './QuillRichTextEditor';
 
 interface ResourcesProps {
     navigateToResource: (resource: Resource) => void;
@@ -154,10 +154,12 @@ const CreateResourceForm: React.FC<{ onCreate: (data: CreateResourceData) => Pro
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
-                    <RichTextEditor
-                        value={description}
+                    <QuillRichTextEditor
+                        key="resource-editor"
+                        content={description}
                         onChange={setDescription}
                         placeholder="Provide some context for this resource..."
+                        height="300px"
                     />
                 </div>
                 

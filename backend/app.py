@@ -21,11 +21,393 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from datetime import datetime, timedelta, timezone
 
+# --- Email Helper Functions ---
+def send_email(to_email, subject, body, is_html=False):
+    """Send email using SMTP"""
+    try:
+        # Create message
+        msg = MIMEMultipart('alternative')
+        msg['From'] = MAIL_DEFAULT_SENDER
+        msg['To'] = to_email
+        msg['Subject'] = subject
+        
+        # Add body
+        if is_html:
+            msg.attach(MIMEText(body, 'html'))
+        else:
+            msg.attach(MIMEText(body, 'plain'))
+        
+        # Connect to server and send email
+        if MAIL_USE_SSL:
+            server = smtplib.SMTP_SSL(MAIL_SERVER, MAIL_PORT)
+        else:
+            server = smtplib.SMTP(MAIL_SERVER, MAIL_PORT)
+            if MAIL_USE_TLS:
+                server.starttls()
+        
+        server.login(MAIL_USERNAME, MAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        
+        app.logger.info(f"Email sent successfully to {to_email}")
+        return True
+        
+    except Exception as e:
+        app.logger.error(f"Failed to send email to {to_email}: {e}")
+        return False
+
+def send_invitation_email(invitee_email, inviter_name, token):
+    """Send invitation email"""
+    subject = f"You're invited to join PulseLoopCare by {inviter_name}"
+    
+    # Create invitation link
+    invitation_link = f"{FRONTEND_URL}/?token={token}"
+    
+    # HTML email body
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #14B8A6, #0D9488); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #14B8A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Welcome to PulseLoopCare</h1>
+                <p>You've been invited to join our healthcare professional community</p>
+            </div>
+            <div class="content">
+                <h2>Hello!</h2>
+                <p><strong>{inviter_name}</strong> has invited you to join PulseLoopCare, a platform designed to connect healthcare professionals and enhance medical collaboration.</p>
+                
+                <p>With PulseLoopCare, you can:</p>
+                <ul>
+                    <li>Connect with fellow healthcare professionals</li>
+                    <li>Access AI-powered medical insights</li>
+                    <li>Share resources and best practices</li>
+                    <li>Collaborate on complex cases</li>
+                </ul>
+                
+                <div style="text-align: center;">
+                    <a href="{invitation_link}" class="button">Accept Invitation</a>
+                </div>
+                
+                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #14B8A6;">{invitation_link}</p>
+                
+                <p>This invitation will expire in 7 days.</p>
+            </div>
+            <div class="footer">
+                <p>© 2025 PulseLoopCare. All rights reserved.</p>
+                <p>Contact us: admin@pulseloopcare.com | +1 (832) 334-1801</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(invitee_email, subject, html_body, is_html=True)
+
+def send_password_reset_email(user_email, user_name, reset_token):
+    """Send password reset email"""
+    subject = "Reset Your PulseLoopCare Password"
+    
+    # Create reset link
+    reset_link = f"{FRONTEND_URL}/reset-password?token={reset_token}"
+    
+    # HTML email body
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #14B8A6, #0D9488); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }}
+            .button {{ display: inline-block; background: #14B8A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+            .warning {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Password Reset Request</h1>
+                <p>PulseLoopCare Account Security</p>
+            </div>
+            <div class="content">
+                <h2>Hello {user_name}!</h2>
+                <p>We received a request to reset your password for your PulseLoopCare account.</p>
+                
+                <div style="text-align: center;">
+                    <a href="{reset_link}" class="button">Reset Password</a>
+                </div>
+                
+                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; color: #14B8A6;">{reset_link}</p>
+                
+                <div class="warning">
+                    <strong>Security Notice:</strong> This link will expire in 1 hour for your security. If you didn't request this password reset, please ignore this email.
+                </div>
+                
+                <p>If you continue to have problems, please contact our support team.</p>
+            </div>
+            <div class="footer">
+                <p>© 2025 PulseLoopCare. All rights reserved.</p>
+                <p>Contact us: admin@pulseloopcare.com | +1 (832) 334-1801</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user_email, subject, html_body, is_html=True)
+
+def send_welcome_email(user_email, user_name):
+    """Send welcome email to new users"""
+    subject = "Welcome to PulseLoopCare - Your Account is Pending Approval"
+    
+    # HTML email body
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #14B8A6, #0D9488); color: white; padding: 40px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f8f9fa; padding: 40px; border-radius: 0 0 10px 10px; }}
+            .welcome-box {{ background: #e8f5e8; border: 2px solid #14B8A6; padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center; }}
+            .feature-list {{ background: white; padding: 25px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            .feature-item {{ display: flex; align-items: center; margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }}
+            .feature-icon {{ background: #14B8A6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-weight: bold; }}
+            .pending-notice {{ background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+            .contact-info {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎉 Welcome to PulseLoopCare!</h1>
+                <p>Your Healthcare Professional Community Awaits</p>
+            </div>
+            <div class="content">
+                <div class="welcome-box">
+                    <h2>Hello {user_name}!</h2>
+                    <p style="font-size: 18px; margin: 0;">Thank you for joining PulseLoopCare - the premier platform for healthcare professionals to connect, collaborate, and advance medical innovation together.</p>
+                </div>
+                
+                <div class="pending-notice">
+                    <h3>⏳ Account Pending Approval</h3>
+                    <p><strong>Your account is currently under review by our admin team.</strong> This process typically takes 24-48 hours as we verify your healthcare credentials to maintain the highest standards of our professional community.</p>
+                    <p>You'll receive an email notification once your account is approved and you can start exploring all that PulseLoopCare has to offer!</p>
+                </div>
+                
+                <div class="feature-list">
+                    <h3>🌟 What Awaits You in PulseLoopCare:</h3>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">🤝</div>
+                        <div>
+                            <strong>Professional Networking</strong><br>
+                            Connect with thousands of healthcare professionals worldwide
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div>
+                            <strong>AI-Powered Insights</strong><br>
+                            Access cutting-edge AI tools for medical research and diagnostics
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📚</div>
+                        <div>
+                            <strong>Resource Library</strong><br>
+                            Share and access medical resources, case studies, and best practices
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">💬</div>
+                        <div>
+                            <strong>Collaborative Discussions</strong><br>
+                            Engage in meaningful discussions about complex medical cases
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📊</div>
+                        <div>
+                            <strong>Analytics & Insights</strong><br>
+                            Track your professional growth and contribution to the community
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="contact-info">
+                    <h3>📞 Need Help?</h3>
+                    <p>If you have any questions or need assistance, our support team is here to help:</p>
+                    <p><strong>Email:</strong> admin@pulseloopcare.com<br>
+                    <strong>Phone:</strong> +1 (832) 334-1801</p>
+                </div>
+                
+                <p style="text-align: center; margin-top: 30px; font-style: italic; color: #666;">
+                    Thank you for your patience as we work to maintain the highest quality standards in our healthcare professional community.
+                </p>
+            </div>
+            <div class="footer">
+                <p>© 2025 PulseLoopCare. All rights reserved.</p>
+                <p>Connecting Healthcare Professionals Worldwide</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user_email, subject, html_body, is_html=True)
+
+def send_approval_notification_email(user_email, user_name):
+    """Send approval notification email to users when their account is approved"""
+    subject = "🎉 Your PulseLoopCare Account Has Been Approved!"
+    
+    # Create login URL
+    login_url = f"{FRONTEND_URL}"
+    
+    # HTML email body
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: linear-gradient(135deg, #14B8A6, #0D9488); color: white; padding: 40px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .content {{ background: #f8f9fa; padding: 40px; border-radius: 0 0 10px 10px; }}
+            .approval-box {{ background: #d4edda; border: 2px solid #28a745; padding: 25px; border-radius: 10px; margin: 25px 0; text-align: center; }}
+            .cta-button {{ display: inline-block; background: #14B8A6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }}
+            .feature-list {{ background: white; padding: 25px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            .feature-item {{ display: flex; align-items: center; margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; }}
+            .feature-icon {{ background: #14B8A6; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-weight: bold; }}
+            .footer {{ text-align: center; margin-top: 30px; color: #666; font-size: 14px; }}
+            .contact-info {{ background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🎉 Congratulations!</h1>
+                <p>Your PulseLoopCare Account is Now Active</p>
+            </div>
+            <div class="content">
+                <div class="approval-box">
+                    <h2>Hello {user_name}!</h2>
+                    <p style="font-size: 18px; margin: 0;"><strong>Great news!</strong> Your PulseLoopCare account has been approved and is now active. You can now access all the features and start connecting with fellow healthcare professionals!</p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{login_url}" class="cta-button">Login to Your Account</a>
+                </div>
+                
+                <div class="feature-list">
+                    <h3>🚀 What You Can Do Now:</h3>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">👥</div>
+                        <div>
+                            <strong>Connect with Colleagues</strong><br>
+                            Start networking with thousands of healthcare professionals
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">🤖</div>
+                        <div>
+                            <strong>Access AI Tools</strong><br>
+                            Use our advanced AI-powered medical insights and diagnostics
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📝</div>
+                        <div>
+                            <strong>Share Knowledge</strong><br>
+                            Post articles, share resources, and contribute to discussions
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">💬</div>
+                        <div>
+                            <strong>Join Discussions</strong><br>
+                            Participate in meaningful medical case discussions
+                        </div>
+                    </div>
+                    
+                    <div class="feature-item">
+                        <div class="feature-icon">📊</div>
+                        <div>
+                            <strong>Track Your Impact</strong><br>
+                            Monitor your contributions and professional growth
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: center;">
+                    <h3>💡 Pro Tip</h3>
+                    <p>Complete your profile to get the most out of PulseLoopCare. Add your specialty, experience, and interests to help others find and connect with you!</p>
+                </div>
+                
+                <div class="contact-info">
+                    <h3>📞 Need Help Getting Started?</h3>
+                    <p>Our support team is here to help you make the most of your PulseLoopCare experience:</p>
+                    <p><strong>Email:</strong> admin@pulseloopcare.com<br>
+                    <strong>Phone:</strong> +1 (832) 334-1801</p>
+                </div>
+                
+                <p style="text-align: center; margin-top: 30px; font-style: italic; color: #666;">
+                    Welcome to the PulseLoopCare community! We're excited to see what you'll contribute to our growing network of healthcare professionals.
+                </p>
+            </div>
+            <div class="footer">
+                <p>© 2025 PulseLoopCare. All rights reserved.</p>
+                <p>Connecting Healthcare Professionals Worldwide</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user_email, subject, html_body, is_html=True)
+
 # --- Import your corrected models ---
-from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset
+from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset, Feedback
 
 # Load environment variables
 load_dotenv()
+
+# Email configuration
+MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.hostinger.com')
+MAIL_PORT = int(os.getenv('MAIL_PORT', 465))
+MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'True').lower() == 'true'
+MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'False').lower() == 'true'
+MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'admin@pulseloopcare.com')
+MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '')
+MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'admin@pulseloopcare.com')
+
+# Frontend URL configuration
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 app = Flask(__name__)
 CORS(app)
@@ -43,6 +425,8 @@ APP_DOMAIN = os.getenv("APP_DOMAIN", "http://localhost:5173")
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this")
 
 app.config['SECRET_KEY'] = SECRET_KEY
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -72,7 +456,7 @@ migrate = Migrate(app, db)
 #     app.logger.error(f"Error initializing Supabase client: {e}")
 
 # Local file storage configuration
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'}
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
@@ -82,6 +466,8 @@ os.makedirs(os.path.join(UPLOAD_FOLDER, 'avatars'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'posts'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'resources'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'blogs'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'media'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'broadcasts'), exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -89,9 +475,11 @@ def allowed_file(filename):
 def save_file_locally(file, folder):
     """Save uploaded file to local storage"""
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        # Add UUID to prevent filename conflicts
-        unique_filename = f"{uuid.uuid4()}_{filename}"
+        # Get file extension
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        
+        # Create a safe filename with UUID and extension only
+        unique_filename = f"{uuid.uuid4()}.{file_ext}"
         file_path = os.path.join(UPLOAD_FOLDER, folder, unique_filename)
         file.save(file_path)
         return f"/uploads/{folder}/{unique_filename}", unique_filename
@@ -301,43 +689,23 @@ def generate_display_name(user, display_name_preference):
     state = user.state or ''
     
     if display_name_preference == 'FullName':
-        # Format: "First name, last initial, title/department, and state"
-        # Example: "Jane S., RN, CA" or "Jane S., ICU, CA"
+        # Format: "First name only" (role shown separately on frontend)
+        # Example: "Jane" or "John"
         name_parts = full_name.strip().split()
-        if len(name_parts) >= 2:
+        if len(name_parts) >= 1:
             first_name = name_parts[0]
-            last_initial = name_parts[-1][0] + '.' if name_parts[-1] else ''
-            name_part = f"{first_name} {last_initial}"
         else:
-            name_part = full_name
+            first_name = full_name
         
-        # Build the display name with title/department and state
-        parts = [name_part]
-        # Prefer department over title if available
-        professional_info = department if department else title
-        if professional_info:
-            parts.append(professional_info)
-        if state:
-            parts.append(state)
-        
-        return ', '.join(parts)
+        return first_name
     
     elif display_name_preference == 'Initials':
-        # Format: "Initials, title/department, and state"
-        # Example: "J.S., RN, CA" or "J.S., ICU, CA"
+        # Format: "Initials only" (role shown separately on frontend)
+        # Example: "J.S." or "M.K."
         name_parts = full_name.strip().split()
         initials = '.'.join([part[0] for part in name_parts if part]) + '.' if name_parts else ''
         
-        # Build the display name with title/department and state
-        parts = [initials]
-        # Prefer department over title if available
-        professional_info = department if department else title
-        if professional_info:
-            parts.append(professional_info)
-        if state:
-            parts.append(state)
-        
-        return ', '.join(parts)
+        return initials
     
     # Fallback to full name if preference is not recognized
     return full_name
@@ -370,8 +738,16 @@ def signup():
         db.session.add(new_user)
         db.session.commit()
         
+        # Send welcome email to the new user
+        try:
+            send_welcome_email(email, name)
+            app.logger.info(f"Welcome email sent to {email}")
+        except Exception as email_error:
+            app.logger.error(f"Failed to send welcome email to {email}: {email_error}")
+            # Don't fail the signup if email fails, just log the error
+        
         return jsonify({
-            "message": "User signed up successfully. Awaiting admin approval.",
+            "message": "User signed up successfully. Awaiting admin approval. A welcome email has been sent to your inbox.",
             "user": new_user.to_dict()
         }), 201
         
@@ -896,6 +1272,34 @@ def get_user_posts(user_id):
     return jsonify([post.to_dict_feed() for post in posts]), 200
  
    
+@app.route('/api/posts/<uuid:post_id>', methods=['DELETE'])
+@authenticated_only
+def delete_post(post_id):
+    """Delete a post (author only)"""
+    try:
+        post_id_str = str(post_id)
+        post = Post.query.get(post_id_str)
+        if not post:
+            return jsonify({"error": "Post not found"}), 404
+        
+        # Check if user is the author or admin
+        if post.author_id != request.user_id and request.user_role != 'ADMIN':
+            return jsonify({"error": "Unauthorized to delete this post"}), 403
+        
+        # Delete associated reactions and comments
+        Reaction.query.filter_by(post_id=post_id_str).delete()
+        Comment.query.filter_by(post_id=post_id_str).delete()
+        
+        # Delete the post
+        db.session.delete(post)
+        db.session.commit()
+        
+        return jsonify({"message": "Post deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting post: {e}")
+        return jsonify({"error": "Failed to delete post"}), 500
+
 @app.route('/api/posts', methods=['POST'])
 @role_required(['NURSE', 'ADMIN'])
 def create_post():
@@ -1364,8 +1768,16 @@ def approve_user(user_id):
         user_to_approve.role = 'NURSE'
         db.session.commit()
         
+        # Send approval notification email to the approved user
+        try:
+            send_approval_notification_email(user_to_approve.email, user_to_approve.name)
+            app.logger.info(f"Approval notification email sent to {user_to_approve.email}")
+        except Exception as email_error:
+            app.logger.error(f"Failed to send approval email to {user_to_approve.email}: {email_error}")
+            # Don't fail the approval if email fails, just log the error
+        
         return jsonify({
-            "message": f"User {user_to_approve.name} approved as NURSE",
+            "message": f"User {user_to_approve.name} approved as NURSE. Approval email sent.",
             "user": user_to_approve.to_dict()
         }), 200
         
@@ -1411,6 +1823,15 @@ def update_user_role(user_id):
         old_role = user.role
         user.role = new_role
         db.session.commit()
+        
+        # Send approval notification email if user was approved
+        if old_role == 'PENDING' and new_role in ['NURSE', 'ADMIN']:
+            try:
+                send_approval_notification_email(user.email, user.name)
+                app.logger.info(f"Approval notification email sent to {user.email}")
+            except Exception as email_error:
+                app.logger.error(f"Failed to send approval email to {user.email}: {email_error}")
+                # Don't fail the role update if email fails, just log the error
         
         return jsonify({
             "message": f"User role updated from {old_role} to {new_role}",
@@ -1514,6 +1935,12 @@ def get_pending_resources():
     pending_resources = Resource.query.filter_by(status='PENDING').order_by(Resource.created_at.asc()).all()
     return jsonify([resource.to_dict() for resource in pending_resources]), 200
 
+@app.route('/api/admin/all-resources', methods=['GET'])
+@role_required(['ADMIN'])
+def get_all_resources():
+    all_resources = Resource.query.order_by(Resource.created_at.desc()).all()
+    return jsonify([resource.to_dict() for resource in all_resources]), 200
+
 @app.route('/api/admin/approve-resource/<uuid:resource_id>', methods=['PUT'])
 @role_required(['ADMIN'])
 def approve_resource(resource_id):
@@ -1523,8 +1950,55 @@ def approve_resource(resource_id):
     if not resource_to_approve:
         return jsonify({"error": "Resource not found or not in PENDING status"}), 404
     resource_to_approve.status = 'APPROVED'
+    resource_to_approve.rejection_reason = None  # Clear any previous rejection reason
     db.session.commit()
     return jsonify(resource_to_approve.to_dict()), 200
+
+@app.route('/api/admin/reject-resource/<uuid:resource_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def reject_resource(resource_id):
+    # Convert UUID to string for database query
+    resource_id_str = str(resource_id)
+    data = request.get_json()
+    rejection_reason = data.get('rejectionReason', '') if data else ''
+    
+    resource_to_reject = Resource.query.filter_by(id=resource_id_str, status='PENDING').first()
+    if not resource_to_reject:
+        return jsonify({"error": "Resource not found or not in PENDING status"}), 404
+    
+    resource_to_reject.status = 'REJECTED'
+    resource_to_reject.rejection_reason = rejection_reason
+    db.session.commit()
+    return jsonify(resource_to_reject.to_dict()), 200
+
+@app.route('/api/admin/inactivate-resource/<uuid:resource_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def inactivate_resource(resource_id):
+    # Convert UUID to string for database query
+    resource_id_str = str(resource_id)
+    
+    resource_to_inactivate = Resource.query.filter_by(id=resource_id_str).first()
+    if not resource_to_inactivate:
+        return jsonify({"error": "Resource not found"}), 404
+    
+    resource_to_inactivate.status = 'INACTIVE'
+    db.session.commit()
+    return jsonify(resource_to_inactivate.to_dict()), 200
+
+@app.route('/api/admin/reactivate-resource/<uuid:resource_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def reactivate_resource(resource_id):
+    # Convert UUID to string for database query
+    resource_id_str = str(resource_id)
+    
+    resource_to_reactivate = Resource.query.filter_by(id=resource_id_str).first()
+    if not resource_to_reactivate:
+        return jsonify({"error": "Resource not found"}), 404
+    
+    resource_to_reactivate.status = 'APPROVED'
+    resource_to_reactivate.rejection_reason = None  # Clear any rejection reason
+    db.session.commit()
+    return jsonify(resource_to_reactivate.to_dict()), 200
 
 # --- New Resource Editor Endpoints ---
 
@@ -1619,6 +2093,12 @@ def get_blogs():
     blogs = Blog.query.filter_by(status='APPROVED').order_by(Blog.created_at.desc()).all()
     return jsonify([blog.to_dict() for blog in blogs]), 200
 
+@app.route('/api/public/blogs', methods=['GET'])
+def get_public_blogs():
+    """Public endpoint to get approved blogs without authentication"""
+    blogs = Blog.query.filter_by(status='APPROVED').order_by(Blog.created_at.desc()).all()
+    return jsonify([blog.to_dict() for blog in blogs]), 200
+
 @app.route('/api/blogs/<uuid:blog_id>', methods=['GET'])
 @authenticated_only
 def get_blog_by_id(blog_id):
@@ -1710,6 +2190,12 @@ def get_pending_blogs():
     pending_blogs = Blog.query.filter_by(status='PENDING').order_by(Blog.created_at.asc()).all()
     return jsonify([blog.to_dict() for blog in pending_blogs]), 200
 
+@app.route('/api/admin/all-blogs', methods=['GET'])
+@role_required(['ADMIN'])
+def get_all_blogs():
+    all_blogs = Blog.query.order_by(Blog.created_at.desc()).all()
+    return jsonify([blog.to_dict() for blog in all_blogs]), 200
+
 @app.route('/api/admin/approve-blog/<uuid:blog_id>', methods=['PUT'])
 @role_required(['ADMIN'])
 def approve_blog(blog_id):
@@ -1719,8 +2205,55 @@ def approve_blog(blog_id):
     if not blog_to_approve:
         return jsonify({"error": "Blog not found or not in PENDING status"}), 404
     blog_to_approve.status = 'APPROVED'
+    blog_to_approve.rejection_reason = None  # Clear any previous rejection reason
     db.session.commit()
     return jsonify(blog_to_approve.to_dict()), 200
+
+@app.route('/api/admin/reject-blog/<uuid:blog_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def reject_blog(blog_id):
+    # Convert UUID to string for database query
+    blog_id_str = str(blog_id)
+    data = request.get_json()
+    rejection_reason = data.get('rejectionReason', '') if data else ''
+    
+    blog_to_reject = Blog.query.filter_by(id=blog_id_str, status='PENDING').first()
+    if not blog_to_reject:
+        return jsonify({"error": "Blog not found or not in PENDING status"}), 404
+    
+    blog_to_reject.status = 'REJECTED'
+    blog_to_reject.rejection_reason = rejection_reason
+    db.session.commit()
+    return jsonify(blog_to_reject.to_dict()), 200
+
+@app.route('/api/admin/inactivate-blog/<uuid:blog_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def inactivate_blog(blog_id):
+    # Convert UUID to string for database query
+    blog_id_str = str(blog_id)
+    
+    blog_to_inactivate = Blog.query.filter_by(id=blog_id_str).first()
+    if not blog_to_inactivate:
+        return jsonify({"error": "Blog not found"}), 404
+    
+    blog_to_inactivate.status = 'INACTIVE'
+    db.session.commit()
+    return jsonify(blog_to_inactivate.to_dict()), 200
+
+@app.route('/api/admin/reactivate-blog/<uuid:blog_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def reactivate_blog(blog_id):
+    # Convert UUID to string for database query
+    blog_id_str = str(blog_id)
+    
+    blog_to_reactivate = Blog.query.filter_by(id=blog_id_str).first()
+    if not blog_to_reactivate:
+        return jsonify({"error": "Blog not found"}), 404
+    
+    blog_to_reactivate.status = 'APPROVED'
+    blog_to_reactivate.rejection_reason = None  # Clear any rejection reason
+    db.session.commit()
+    return jsonify(blog_to_reactivate.to_dict()), 200
 
 # --- New Blog Editor Endpoints ---
 
@@ -1815,14 +2348,305 @@ def delete_blog(blog_id):
         app.logger.error(f"Error deleting blog: {e}")
         return jsonify({"error": "Failed to delete blog"}), 500
 
+# --- FEEDBACK ENDPOINTS ---
+
+@app.route('/api/feedbacks', methods=['POST'])
+@authenticated_only
+def create_feedback():
+    """Create a new feedback entry"""
+    data = request.get_json()
+    
+    if not data or not data.get('content') or not data.get('rating'):
+        return jsonify({"error": "Content and rating are required"}), 400
+    
+    rating = data.get('rating')
+    if not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"error": "Rating must be an integer between 1 and 5"}), 400
+    
+    try:
+        new_feedback = Feedback(
+            user_id=request.user_id,
+            content=data.get('content'),
+            rating=rating
+        )
+        
+        db.session.add(new_feedback)
+        db.session.commit()
+        
+        return jsonify(new_feedback.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating feedback: {e}")
+        return jsonify({"error": "Failed to create feedback"}), 500
+
+@app.route('/api/public/feedbacks', methods=['GET'])
+def get_public_feedbacks():
+    """Get approved feedbacks for public display (testimonials)"""
+    try:
+        feedbacks = Feedback.query.filter_by(status='APPROVED').order_by(Feedback.created_at.desc()).limit(10).all()
+        return jsonify([feedback.to_dict() for feedback in feedbacks]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching public feedbacks: {e}")
+        return jsonify({"error": "Failed to fetch feedbacks"}), 500
+
+@app.route('/api/feedbacks', methods=['GET'])
+@authenticated_only
+def get_user_feedbacks():
+    """Get feedbacks for the authenticated user"""
+    try:
+        feedbacks = Feedback.query.filter_by(user_id=request.user_id).order_by(Feedback.created_at.desc()).all()
+        return jsonify([feedback.to_dict() for feedback in feedbacks]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching user feedbacks: {e}")
+        return jsonify({"error": "Failed to fetch feedbacks"}), 500
+
+@app.route('/api/admin/feedbacks', methods=['GET'])
+@role_required(['ADMIN'])
+def get_all_feedbacks():
+    """Get all feedbacks for admin review"""
+    try:
+        feedbacks = Feedback.query.order_by(Feedback.created_at.desc()).all()
+        app.logger.info(f"Returning {len(feedbacks)} feedbacks to admin")
+        for fb in feedbacks:
+            app.logger.info(f"Feedback ID: {fb.id}, Status: {fb.status}, Author: {fb.author.name if fb.author else 'Unknown'}")
+        return jsonify([feedback.to_dict() for feedback in feedbacks]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching all feedbacks: {e}")
+        return jsonify({"error": "Failed to fetch feedbacks"}), 500
+
+@app.route('/api/admin/feedbacks/<string:feedback_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def update_feedback_status(feedback_id):
+    """Update feedback status (approve/reject)"""
+    data = request.get_json()
+    status = data.get('status')
+    
+    # Debug logging
+    app.logger.info(f"Attempting to update feedback ID: {feedback_id}")
+    app.logger.info(f"Requested status: {status}")
+    
+    if status not in ['APPROVED', 'REJECTED', 'PENDING']:
+        return jsonify({"error": "Invalid status. Must be APPROVED, REJECTED, or PENDING"}), 400
+    
+    try:
+        # Debug: Check all feedback IDs in database
+        all_feedbacks = Feedback.query.all()
+        app.logger.info(f"Total feedbacks in database: {len(all_feedbacks)}")
+        for fb in all_feedbacks:
+            app.logger.info(f"Feedback ID in DB: {fb.id}, Status: {fb.status}")
+        
+        app.logger.info(f"Searching for feedback with ID: {feedback_id}")
+        
+        feedback = Feedback.query.filter_by(id=feedback_id).first()
+        if not feedback:
+            app.logger.warning(f"Feedback with ID {feedback_id} not found in database")
+            return jsonify({"error": "Feedback not found"}), 404
+        
+        app.logger.info(f"Found feedback: {feedback.id}, current status: {feedback.status}")
+        feedback.status = status
+        db.session.commit()
+        
+        app.logger.info(f"Successfully updated feedback {feedback.id} to status: {status}")
+        return jsonify(feedback.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating feedback status: {e}")
+        return jsonify({"error": "Failed to update feedback status"}), 500
+
+# --- EMAIL TEST ENDPOINT ---
+
+@app.route('/api/test-email', methods=['POST'])
+@role_required(['ADMIN'])
+def test_email():
+    """Test email functionality"""
+    data = request.get_json()
+    test_email_address = data.get('email')
+    
+    if not test_email_address:
+        return jsonify({"error": "Email address is required"}), 400
+    
+    subject = "PulseLoopCare Email Test"
+    body = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #14B8A6, #0D9488); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>✅ Email Test Successful!</h1>
+                <p>PulseLoopCare Email Configuration</p>
+            </div>
+            <div class="content">
+                <div class="success">
+                    <strong>Congratulations!</strong> Your email configuration is working correctly.
+                </div>
+                <h2>Email Configuration Details:</h2>
+                <ul>
+                    <li><strong>SMTP Server:</strong> smtp.hostinger.com</li>
+                    <li><strong>Port:</strong> 465</li>
+                    <li><strong>Encryption:</strong> SSL</li>
+                    <li><strong>From Address:</strong> admin@pulseloopcare.com</li>
+                </ul>
+                <p>Your PulseLoopCare application can now send emails for:</p>
+                <ul>
+                    <li>User invitations</li>
+                    <li>Password reset requests</li>
+                    <li>System notifications</li>
+                    <li>Admin communications</li>
+                </ul>
+                <p>This test was sent at: {}</p>
+                <p><strong>Frontend URL:</strong> {FRONTEND_URL}</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"))
+    
+    success = send_email(test_email_address, subject, body, is_html=True)
+    
+    if success:
+        return jsonify({"message": "Test email sent successfully!"}), 200
+    else:
+        return jsonify({"error": "Failed to send test email. Check your email configuration."}), 500
+
+# --- IMAGE UPLOAD ENDPOINTS ---
+
+
+@app.route('/api/upload-image', methods=['POST'])
+@role_required(['ADMIN'])
+def upload_image():
+    """Upload an image file and return the URL"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({"error": "No image file provided"}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            # Generate unique filename
+            unique_filename = f"{uuid.uuid4()}_{filename}"
+            
+            # Create uploads directory if it doesn't exist
+            upload_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'broadcasts')
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            file_path = os.path.join(upload_dir, unique_filename)
+            file.save(file_path)
+            
+            # Return the URL path
+            image_url = f"/uploads/broadcasts/{unique_filename}"
+            return jsonify({"imageUrl": image_url}), 200
+        else:
+            return jsonify({"error": "Invalid file type. Only images are allowed."}), 400
+            
+    except Exception as e:
+        app.logger.error(f"Error uploading image: {e}")
+        return jsonify({"error": "Failed to upload image"}), 500
+
+@app.route('/api/upload-media', methods=['POST'])
+@authenticated_only
+def upload_media():
+    """Upload media files (images/videos) for content creation"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file provided"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        
+        if file and allowed_file(file.filename):
+            # Get file extension
+            file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            
+            # Create a safe filename with UUID and extension only
+            unique_filename = f"{uuid.uuid4()}.{file_ext}"
+            
+            # Create media directory if it doesn't exist
+            media_dir = os.path.join(UPLOAD_FOLDER, 'media')
+            os.makedirs(media_dir, exist_ok=True)
+            
+            file_path = os.path.join(media_dir, unique_filename)
+            
+            # Debug logging
+            app.logger.info(f"Saving file to: {file_path}")
+            app.logger.info(f"Media directory exists: {os.path.exists(media_dir)}")
+            
+            file.save(file_path)
+            
+            # Verify file was saved
+            if os.path.exists(file_path):
+                media_url = f"/uploads/media/{unique_filename}"
+                app.logger.info(f"File saved successfully: {media_url}")
+                return jsonify({"imageUrl": media_url}), 200
+            else:
+                app.logger.error(f"File was not saved to: {file_path}")
+                return jsonify({"error": "Failed to save file"}), 500
+        else:
+            return jsonify({"error": "Invalid file type. Allowed: images, videos, documents"}), 400
+    except Exception as e:
+        app.logger.error(f"Error uploading media: {e}")
+        return jsonify({"error": "Failed to upload media"}), 500
+
+# --- ADMIN POSTS MANAGEMENT ---
+
+@app.route('/api/admin/posts', methods=['GET'])
+@role_required(['ADMIN'])
+def get_all_posts():
+    """Get all posts for admin management"""
+    try:
+        posts = Post.query.order_by(Post.created_at.desc()).all()
+        return jsonify([post.to_dict_feed() for post in posts]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching all posts: {e}")
+        return jsonify({"error": "Failed to fetch posts"}), 500
+
+@app.route('/api/admin/posts/<uuid:post_id>', methods=['DELETE'])
+@role_required(['ADMIN'])
+def admin_delete_post(post_id):
+    """Delete any post (admin only)"""
+    try:
+        post_id_str = str(post_id)
+        post = Post.query.get(post_id_str)
+        if not post:
+            return jsonify({"error": "Post not found"}), 404
+        
+        # Delete associated reactions and comments
+        Reaction.query.filter_by(post_id=post_id_str).delete()
+        Comment.query.filter_by(post_id=post_id_str).delete()
+        
+        # Delete the post
+        db.session.delete(post)
+        db.session.commit()
+        
+        return jsonify({"message": "Post deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting post: {e}")
+        return jsonify({"error": "Failed to delete post"}), 500
+
 # --- BROADCAST MESSAGE ENDPOINTS ---
 
 @app.route('/api/broadcast-messages', methods=['GET'])
 def get_active_broadcast_message():
-    """Get the currently active broadcast message for the landing page"""
+    """Get the currently active and visible broadcast message for the landing page"""
     try:
-        # Get the most recent active broadcast message
-        broadcast_message = BroadcastMessage.query.filter_by(is_active=True).order_by(BroadcastMessage.created_at.desc()).first()
+        # Get the most recent active and visible broadcast message
+        broadcast_message = BroadcastMessage.query.filter_by(
+            is_active=True, 
+            is_visible=True
+        ).order_by(BroadcastMessage.created_at.desc()).first()
         
         if not broadcast_message:
             return jsonify({"message": None}), 200
@@ -1846,7 +2670,7 @@ def get_all_broadcast_messages():
 @app.route('/api/admin/broadcast-messages', methods=['POST'])
 @role_required(['ADMIN'])
 def create_broadcast_message():
-    """Create a new broadcast message"""
+    """Create a new broadcast message with optional image"""
     try:
         data = request.json
         if not data or not data.get('title') or not data.get('message'):
@@ -1859,8 +2683,10 @@ def create_broadcast_message():
         new_message = BroadcastMessage(
             title=data['title'].strip(),
             message=data['message'].strip(),
+            image_url=data.get('imageUrl'),  # Optional image URL
             created_by=request.user_id,
-            is_active=True
+            is_active=True,
+            is_visible=True  # Default to visible
         )
         
         db.session.add(new_message)
@@ -1892,11 +2718,15 @@ def update_broadcast_message(message_id):
             message.title = data['title'].strip()
         if 'message' in data:
             message.message = data['message'].strip()
+        if 'imageUrl' in data:
+            message.image_url = data['imageUrl']
         if 'is_active' in data:
             # If activating this message, deactivate all others
             if data['is_active']:
                 BroadcastMessage.query.filter(BroadcastMessage.id != message_id).update({"is_active": False})
             message.is_active = data['is_active']
+        if 'is_visible' in data:
+            message.is_visible = data['is_visible']
         
         db.session.commit()
         return jsonify(message.to_dict()), 200
@@ -1904,6 +2734,30 @@ def update_broadcast_message(message_id):
         db.session.rollback()
         app.logger.error(f"Error updating broadcast message: {e}")
         return jsonify({"error": "Failed to update broadcast message"}), 500
+
+@app.route('/api/admin/broadcast-messages/<uuid:message_id>/toggle-visibility', methods=['PUT'])
+@role_required(['ADMIN'])
+def toggle_broadcast_message_visibility(message_id):
+    """Toggle the visibility of a broadcast message"""
+    try:
+        # Convert UUID to string for database query
+        message_id_str = str(message_id)
+        message = BroadcastMessage.query.get(message_id_str)
+        if not message:
+            return jsonify({"error": "Broadcast message not found"}), 404
+        
+        # Toggle visibility
+        message.is_visible = not message.is_visible
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Visibility toggled successfully",
+            "isVisible": message.is_visible
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error toggling broadcast message visibility: {e}")
+        return jsonify({"error": "Failed to toggle visibility"}), 500
 
 @app.route('/api/admin/broadcast-messages/<uuid:message_id>', methods=['DELETE'])
 @role_required(['ADMIN'])
