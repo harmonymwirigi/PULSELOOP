@@ -145,8 +145,6 @@ backend/uploads/broadcasts/*
 !backend/uploads/media/.gitkeep
 !backend/uploads/broadcasts/.gitkeep
 
-# Database Migrations (ignore entire migrations folder)
-backend/migrations/
 
 # Temporary files
 *.tmp

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { uploadMedia } from '../services/mockApi';
+import { uploadMedia, getAbsoluteUrl } from '../services/mockApi';
 
 interface QuillRichTextEditorProps {
     content: string;
@@ -65,8 +65,8 @@ const QuillRichTextEditor: React.FC<QuillRichTextEditorProps> = ({
             const response = await uploadMedia(file);
             const mediaUrl = response.imageUrl;
             
-            // Ensure we have the full URL
-            const fullUrl = mediaUrl.startsWith('http') ? mediaUrl : `http://localhost:5000${mediaUrl}`;
+            // Ensure we have the full URL using the shared function
+            const fullUrl = getAbsoluteUrl(mediaUrl);
             
             // Get current cursor position or default to end
             let range = quillRef.current?.getSelection();

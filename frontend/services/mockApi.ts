@@ -687,3 +687,6 @@ export const resetPassword = async (token: string, newPassword: string): Promise
     });
     return handleApiResponse(response);
 };
+
+// Export the getAbsoluteUrl function for use in other components
+export { getAbsoluteUrl };
