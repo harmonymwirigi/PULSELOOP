@@ -71,7 +71,6 @@ code
 Bash
 # Navigate to the frontend directory
 cd ../frontend
-
 # Install any new JavaScript packages from package.json.
 # Safe to run every time.
 npm install
