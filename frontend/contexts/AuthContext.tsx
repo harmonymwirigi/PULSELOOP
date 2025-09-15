@@ -44,9 +44,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const logout = () => {
+        console.log('Logout function called');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         setUser(null);
+        console.log('User logged out successfully');
     };
 
     const signup = async (name: string, email: string, password: string, invitationToken?: string) => {

@@ -42,12 +42,20 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(theme);
     
+    // Debug: Check if class was applied
+    console.log('Theme applied to document:', theme);
+    console.log('Document classes:', document.documentElement.className);
+    
     // Save to localStorage
     localStorage.setItem('theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => {
+      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+      console.log('Theme toggled from', prevTheme, 'to', newTheme);
+      return newTheme;
+    });
   };
 
   return (

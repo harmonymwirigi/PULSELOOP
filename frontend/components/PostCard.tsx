@@ -291,6 +291,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
 
     const heartsCount = countReactions(ReactionType.HEART);
     const supportCount = countReactions(ReactionType.SUPPORT);
+    const laughCount = countReactions(ReactionType.LAUGH);
+    const surprisedCount = countReactions(ReactionType.SURPRISED);
+    const angryCount = countReactions(ReactionType.ANGRY);
+    const sadCount = countReactions(ReactionType.SAD);
+    const fireCount = countReactions(ReactionType.FIRE);
+    const clapCount = countReactions(ReactionType.CLAP);
 
     const canInteract = user && user.role !== Role.PENDING;
     const isAuthor = user && user.id === post.author.id;
@@ -437,30 +443,88 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
                 </div>
             )}
             <div className="p-4">
-                 {(heartsCount > 0 || supportCount > 0) && (
-                    <div className="text-sm text-gray-600 pb-2 flex items-center">
-                        {heartsCount > 0 && <span>{heartsCount} Heart{heartsCount !== 1 ? 's' : ''}</span>}
-                        {heartsCount > 0 && supportCount > 0 && <span className="mx-2">&middot;</span>}
-                        {supportCount > 0 && <span>{supportCount} Support{supportCount !== 1 ? 's' : ''}</span>}
+                 {(heartsCount > 0 || supportCount > 0 || laughCount > 0 || surprisedCount > 0 || angryCount > 0 || sadCount > 0 || fireCount > 0 || clapCount > 0) && (
+                    <div className="text-sm text-gray-600 pb-2 flex flex-wrap items-center gap-2">
+                        {heartsCount > 0 && <span className="flex items-center gap-1">❤️ {heartsCount}</span>}
+                        {supportCount > 0 && <span className="flex items-center gap-1">🤝 {supportCount}</span>}
+                        {laughCount > 0 && <span className="flex items-center gap-1">😂 {laughCount}</span>}
+                        {surprisedCount > 0 && <span className="flex items-center gap-1">😮 {surprisedCount}</span>}
+                        {angryCount > 0 && <span className="flex items-center gap-1">😠 {angryCount}</span>}
+                        {sadCount > 0 && <span className="flex items-center gap-1">😢 {sadCount}</span>}
+                        {fireCount > 0 && <span className="flex items-center gap-1">🔥 {fireCount}</span>}
+                        {clapCount > 0 && <span className="flex items-center gap-1">👏 {clapCount}</span>}
                     </div>
                 )}
-                <div className="border-t border-gray-200 py-2 flex justify-around">
-                    <button
-                        onClick={() => handleReaction(ReactionType.HEART)}
-                        disabled={!canInteract}
-                        className={`flex items-center space-x-2 text-gray-600 hover:text-red-500 transition-colors rounded-md p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.HEART) ? 'text-red-500 font-semibold' : ''}`}
-                    >
-                        <svg className="w-6 h-6" fill={userHasReacted(ReactionType.HEART) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-                        <span>Heart</span>
-                    </button>
-                    <button
-                        onClick={() => handleReaction(ReactionType.SUPPORT)}
-                        disabled={!canInteract}
-                        className={`flex items-center space-x-2 text-gray-600 hover:text-blue-500 transition-colors rounded-md p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SUPPORT) ? 'text-blue-500 font-semibold' : ''}`}
-                    >
-                       <svg className="w-6 h-6" fill={userHasReacted(ReactionType.SUPPORT) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.085a2 2 0 00-1.736.97l-2.062 3.65A1 1 0 015.57 10H5a2 2 0 00-2 2v5a2 2 0 002 2h2.57m7.43-12l-2.062 3.65" /></svg>
-                        <span>Support</span>
-                    </button>
+                <div className="border-t border-gray-200 py-3">
+                    {/* Reaction buttons in a grid layout */}
+                    <div className="grid grid-cols-4 gap-2 mb-2">
+                        <button
+                            onClick={() => handleReaction(ReactionType.HEART)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-red-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.HEART) ? 'text-red-500 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">❤️</span>
+                            <span className="text-xs">Heart</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.SUPPORT)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-blue-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SUPPORT) ? 'text-blue-500 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">🤝</span>
+                            <span className="text-xs">Support</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.LAUGH)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-yellow-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.LAUGH) ? 'text-yellow-500 font-semibold bg-yellow-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">😂</span>
+                            <span className="text-xs">Laugh</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.SURPRISED)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-orange-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SURPRISED) ? 'text-orange-500 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">😮</span>
+                            <span className="text-xs">Surprised</span>
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        <button
+                            onClick={() => handleReaction(ReactionType.ANGRY)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-red-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.ANGRY) ? 'text-red-600 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">😠</span>
+                            <span className="text-xs">Angry</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.SAD)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-blue-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SAD) ? 'text-blue-600 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">😢</span>
+                            <span className="text-xs">Sad</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.FIRE)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-orange-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.FIRE) ? 'text-orange-600 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">🔥</span>
+                            <span className="text-xs">Fire</span>
+                        </button>
+                        <button
+                            onClick={() => handleReaction(ReactionType.CLAP)}
+                            disabled={!canInteract}
+                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-green-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.CLAP) ? 'text-green-500 font-semibold bg-green-50' : 'hover:bg-gray-50'}`}
+                        >
+                            <span className="text-xl">👏</span>
+                            <span className="text-xs">Clap</span>
+                        </button>
+                    </div>
                 </div>
                 <CommentSection 
                     comments={comments} 

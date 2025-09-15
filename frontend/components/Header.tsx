@@ -58,12 +58,20 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                console.log('Click outside detected, closing dropdown');
                 setIsDropdownOpen(false);
             }
         };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+        // Use a slight delay to ensure the dropdown is fully rendered
+        const timeoutId = setTimeout(() => {
+            document.addEventListener("mousedown", handleClickOutside);
+        }, 100);
+        
+        return () => {
+            clearTimeout(timeoutId);
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isDropdownOpen]);
 
     const NavButton: React.FC<{ view: View; children: React.ReactNode }> = ({ view, children }) => {
         const isActive = currentView === view;
@@ -98,9 +106,26 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     <NotificationBell onOpenNotifications={onOpenNotifications} />
                                 )}
                                 
-                                {/* User Avatar Dropdown */}
+                                {/* Logout Button */}
+                                <button 
+                                    onClick={() => {
+                                        console.log('Logout button clicked');
+                                        logout();
+                                    }} 
+                                    className="flex items-center space-x-1 bg-red-500 hover:bg-red-600 text-white rounded-lg px-3 py-2 shadow-lg border border-red-400 hover:shadow-xl transition-all duration-300"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                    <span className="font-bold text-sm">Logout</span>
+                                </button>
+                                
+                                {/* User Avatar Dropdown - Profile Only */}
                                 <div className="relative" ref={dropdownRef}>
-                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                    <button onClick={() => {
+                                        console.log('Mobile dropdown toggle clicked');
+                                        setIsDropdownOpen(!isDropdownOpen);
+                                    }} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
                                         <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
                                             <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                                         </div>
@@ -108,9 +133,17 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
                                     {isDropdownOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-30">
-                                            <a onClick={() => { navigateTo('PROFILE'); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">My Profile</a>
-                                            <a onClick={() => { logout(); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">Logout</a>
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50">
+                                            <button 
+                                                onClick={() => { 
+                                                    console.log('Profile button clicked');
+                                                    navigateTo('PROFILE'); 
+                                                    setIsDropdownOpen(false); 
+                                                }} 
+                                                className="w-full text-left px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 transition-all duration-200 font-medium"
+                                            >
+                                                My Profile
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -180,6 +213,21 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     <NotificationBell onOpenNotifications={onOpenNotifications} />
                                 )}
                                 
+                                {/* Logout Button */}
+                                <button 
+                                    onClick={() => {
+                                        console.log('Desktop Logout button clicked');
+                                        logout();
+                                    }} 
+                                    className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-3 shadow-lg border border-red-400 hover:shadow-xl transition-all duration-300"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                    <span className="font-bold">Logout</span>
+                                </button>
+                                
+                                {/* User Avatar Dropdown - Profile Only */}
                                 <div className="relative ml-3" ref={dropdownRef}>
                                     <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
                                         <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
@@ -189,9 +237,17 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
                                     {isDropdownOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-30">
-                                            <a onClick={() => { navigateTo('PROFILE'); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">My Profile</a>
-                                            <a onClick={() => { logout(); setIsDropdownOpen(false); }} className="block px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 cursor-pointer transition-all duration-200 font-medium">Logout</a>
+                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50">
+                                            <button 
+                                                onClick={() => { 
+                                                    console.log('Desktop Profile button clicked');
+                                                    navigateTo('PROFILE'); 
+                                                    setIsDropdownOpen(false); 
+                                                }} 
+                                                className="w-full text-left px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 transition-all duration-200 font-medium"
+                                            >
+                                                My Profile
+                                            </button>
                                         </div>
                                     )}
                                 </div>

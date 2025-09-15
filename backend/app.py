@@ -1425,7 +1425,7 @@ def add_comment(post_id):
 @authenticated_only
 def toggle_reaction(post_id):
     reaction_type = request.json.get('type')
-    if reaction_type not in ['HEART', 'SUPPORT']: 
+    if reaction_type not in ['HEART', 'SUPPORT', 'LAUGH', 'SURPRISED', 'ANGRY', 'SAD', 'FIRE', 'CLAP']: 
         return jsonify({"error": "Invalid reaction type"}), 400
     
     try:
@@ -1473,7 +1473,7 @@ def toggle_comment_reaction(comment_id):
     data = request.json
     reaction_type = data.get('type') if data else None
     
-    if reaction_type not in ['UPVOTE', 'DOWNVOTE', 'HELPFUL', 'EXPERT']:
+    if reaction_type not in ['UPVOTE', 'DOWNVOTE', 'HELPFUL', 'EXPERT', 'LAUGH', 'SURPRISED', 'ANGRY', 'SAD', 'FIRE', 'CLAP']:
         return jsonify({"error": "Invalid reaction type"}), 400
     
     try:

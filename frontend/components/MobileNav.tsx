@@ -17,7 +17,7 @@ const MobileNav: React.FC<MobileNavProps> = ({
     onOpenNotifications,
     onInviteClick 
 }) => {
-    const { user } = useAuth();
+    const { user, logout } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
     const NavItem: React.FC<{ 
@@ -164,6 +164,20 @@ const MobileNav: React.FC<MobileNavProps> = ({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                                 <span>My Profile</span>
+                            </button>
+                            
+                            {/* Logout Button */}
+                            <button
+                                onClick={() => {
+                                    logout();
+                                    setIsOpen(false);
+                                }}
+                                className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left font-semibold text-red-600 dark:text-red-400 hover:bg-gradient-to-r hover:from-red-50 hover:to-red-50 dark:hover:from-red-900/20 dark:hover:to-red-900/20 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                <span>Logout</span>
                             </button>
                         </div>
                     </div>

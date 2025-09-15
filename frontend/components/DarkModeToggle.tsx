@@ -6,7 +6,10 @@ const DarkModeToggle: React.FC = () => {
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={() => {
+        console.log('DarkModeToggle clicked, current theme:', theme);
+        toggleTheme();
+      }}
       className="relative inline-flex h-8 w-14 items-center rounded-full bg-gray-200 dark:bg-gray-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
       role="switch"
       aria-checked={theme === 'dark'}

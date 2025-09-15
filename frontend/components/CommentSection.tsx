@@ -96,27 +96,55 @@ const CommentSection: React.FC<CommentSectionProps> = ({
                             <p className="text-sm text-gray-700 mb-2">{comment.text}</p>
                             
                             {/* Reaction buttons */}
-                            <div className="flex items-center space-x-4">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <button
                                     onClick={() => handleReaction(comment.id, 'UPVOTE')}
-                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-green-600"
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-green-600 px-2 py-1 rounded-md hover:bg-green-50"
                                 >
                                     <span>👍</span>
                                     <span>{comment.reactionCounts?.UPVOTE || 0}</span>
                                 </button>
                                 <button
                                     onClick={() => handleReaction(comment.id, 'HELPFUL')}
-                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-blue-600"
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-blue-600 px-2 py-1 rounded-md hover:bg-blue-50"
                                 >
                                     <span>💡</span>
                                     <span>{comment.reactionCounts?.HELPFUL || 0}</span>
                                 </button>
                                 <button
                                     onClick={() => handleReaction(comment.id, 'EXPERT')}
-                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-purple-600"
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-purple-600 px-2 py-1 rounded-md hover:bg-purple-50"
                                 >
                                     <span>⭐</span>
                                     <span>{comment.reactionCounts?.EXPERT || 0}</span>
+                                </button>
+                                <button
+                                    onClick={() => handleReaction(comment.id, 'LAUGH')}
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-yellow-600 px-2 py-1 rounded-md hover:bg-yellow-50"
+                                >
+                                    <span>😂</span>
+                                    <span>{comment.reactionCounts?.LAUGH || 0}</span>
+                                </button>
+                                <button
+                                    onClick={() => handleReaction(comment.id, 'SURPRISED')}
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-orange-600 px-2 py-1 rounded-md hover:bg-orange-50"
+                                >
+                                    <span>😮</span>
+                                    <span>{comment.reactionCounts?.SURPRISED || 0}</span>
+                                </button>
+                                <button
+                                    onClick={() => handleReaction(comment.id, 'FIRE')}
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-red-600 px-2 py-1 rounded-md hover:bg-red-50"
+                                >
+                                    <span>🔥</span>
+                                    <span>{comment.reactionCounts?.FIRE || 0}</span>
+                                </button>
+                                <button
+                                    onClick={() => handleReaction(comment.id, 'CLAP')}
+                                    className="flex items-center space-x-1 text-xs text-gray-600 hover:text-green-600 px-2 py-1 rounded-md hover:bg-green-50"
+                                >
+                                    <span>👏</span>
+                                    <span>{comment.reactionCounts?.CLAP || 0}</span>
                                 </button>
                                 
                                 {canComment && depth < maxDepth && (

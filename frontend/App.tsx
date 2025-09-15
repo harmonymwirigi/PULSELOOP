@@ -60,6 +60,7 @@ const AppContent: React.FC = () => {
     const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
     const navigateTo = (view: View) => {
+        console.log('Navigating to:', view);
         setCurrentView(view);
     };
 

@@ -34,6 +34,12 @@ export interface User {
 export enum ReactionType {
     HEART = 'HEART',
     SUPPORT = 'SUPPORT',
+    LAUGH = 'LAUGH',
+    SURPRISED = 'SURPRISED',
+    ANGRY = 'ANGRY',
+    SAD = 'SAD',
+    FIRE = 'FIRE',
+    CLAP = 'CLAP',
 }
 
 export interface Reaction {
