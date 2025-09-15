@@ -70,6 +70,7 @@ With the backend ready, we now compile the latest frontend source code into the 
 code
 Bash
 # Navigate to the frontend directory
+
 cd ../frontend
 # Install any new JavaScript packages from package.json.
 # Safe to run every time.
