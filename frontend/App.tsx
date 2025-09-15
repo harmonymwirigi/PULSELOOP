@@ -176,7 +176,7 @@ const AppContent: React.FC = () => {
                 }}
             />
             <InviteModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
-            <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 flex-grow relative">
+            <main className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-8 flex-grow relative">
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-5 pointer-events-none">
                     <div className="absolute inset-0" style={{
@@ -194,7 +194,7 @@ const AppContent: React.FC = () => {
                 <BroadcastMessageComponent />
                 
                 {/* Mobile Search Bar */}
-                <div className="lg:hidden mb-4 px-2">
+                <div className="lg:hidden mb-3 px-2">
                     <SearchBar 
                         onResultClick={(result) => {
                             if (result.type === 'post') {
@@ -209,7 +209,7 @@ const AppContent: React.FC = () => {
                     />
                 </div>
                 {currentView === 'FEED' ? (
-                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
                         {/* Left Sidebar */}
                         <aside className="hidden lg:block lg:col-span-1">
                             <div className="sticky top-24 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md p-6 rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 space-y-4">
@@ -240,7 +240,7 @@ const AppContent: React.FC = () => {
 
                         {/* Main Content */}
                         <div className="lg:col-span-2 relative">
-                           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
+                           <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 lg:p-6">
                                <MainContent />
                            </div>
                         </div>
@@ -260,13 +260,13 @@ const AppContent: React.FC = () => {
                     </div>
                 ) : (
                     <div className="relative">
-                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
+                        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 lg:p-6">
                             <MainContent />
                         </div>
                         {/* Mobile Trending Topics - Show below main content on mobile */}
                         {currentView === 'FEED' && (
-                            <div className="mt-6 lg:hidden">
-                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6">
+                            <div className="mt-4 lg:hidden">
+                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4">
                                     <TrendingTopics 
                                         onTagClick={(tag) => {
                                             setFeedTagFilter(tag);

@@ -30,7 +30,7 @@ Next, pull the latest version of your code from your GitHub repository.
 
 ```bash
 # Navigate to the root project directory
-cd /var/w ww/pulseloop
+cd /var/www/pulseloop
 
 # This command discards any accidental changes made on the server and
 # ensures your local server copy is identical to what's on GitHub.

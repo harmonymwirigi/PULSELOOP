@@ -205,16 +205,6 @@ const LandingPage: React.FC = () => {
                 <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-40 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
                     <div className="relative z-10 px-4 max-w-6xl mx-auto">
-                        {/* Trust Badge - Repositioned for better mobile/desktop layout */}
-                        <div className="mb-6 sm:mb-8">
-                            <div className="inline-flex items-center bg-white/10 backdrop-blur-md text-white px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-sm font-semibold border border-white/20 shadow-lg">
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                </svg>
-                                <span className="hidden sm:inline">Trusted by 10,000+ Healthcare Professionals</span>
-                                <span className="sm:hidden">10,000+ Healthcare Professionals</span>
-                            </div>
-                        </div>
                         
                         {/* Hero Message Carousel */}
                         <div className="relative max-w-6xl mx-auto mb-10">
@@ -299,6 +289,17 @@ const LandingPage: React.FC = () => {
                                 </svg>
                                 Sign In
                             </button>
+                        </div>
+                        
+                        {/* Trust Badge - Moved below sign in button */}
+                        <div className="mt-8 mb-6">
+                            <div className="inline-flex items-center bg-white/10 backdrop-blur-md text-white px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-sm font-semibold border border-white/20 shadow-lg">
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                </svg>
+                                <span className="hidden sm:inline">Trusted by 10,000+ Healthcare Professionals</span>
+                                <span className="sm:hidden">10,000+ Healthcare Professionals</span>
+                            </div>
                         </div>
                         
                         {/* Trust Indicators */}
