@@ -1,41 +1,53 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, getPendingBlogs, approveBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage } from '../services/mockApi';
-import { User, Resource, Blog, BroadcastMessage } from '../types';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs } from '../services/mockApi';
+import { User, Resource, Blog, BroadcastMessage, Feedback, Post } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
-type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES';
+type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS';
 
 const AdminDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<Tab>('PENDING_USERS');
     const [pendingUsers, setPendingUsers] = useState<User[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [posts, setPosts] = useState<Post[]>([]);
     const [pendingResources, setPendingResources] = useState<Resource[]>([]);
     const [pendingBlogs, setPendingBlogs] = useState<Blog[]>([]);
     const [broadcastMessages, setBroadcastMessages] = useState<BroadcastMessage[]>([]);
+    const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [approvingId, setApprovingId] = useState<string | null>(null);
     const [viewingItem, setViewingItem] = useState<Resource | Blog | null>(null);
     const [showConfirmModal, setShowConfirmModal] = useState<{show: boolean, type: 'delete' | 'role', user: User | null, newRole?: string}>({show: false, type: 'delete', user: null});
     const [showBroadcastModal, setShowBroadcastModal] = useState<{show: boolean, editing?: BroadcastMessage}>({show: false});
-    const [broadcastForm, setBroadcastForm] = useState<{title: string, message: string}>({title: '', message: ''});
+    const [broadcastForm, setBroadcastForm] = useState<{title: string, message: string, imageUrl: string}>({title: '', message: '', imageUrl: ''});
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [uploadingImage, setUploadingImage] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState<{show: boolean, type: 'resource' | 'blog', item: Resource | Blog | null}>({show: false, type: 'resource', item: null});
+    const [rejectionReason, setRejectionReason] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            const [pendingUsersData, allUsersData, resources, blogs, broadcastData] = await Promise.all([
+            const [pendingUsersData, allUsersData, postsData, resources, blogs, broadcastData, feedbacksData] = await Promise.all([
                 getPendingUsers(),
                 getAllUsers(),
-                getPendingResources(),
-                getPendingBlogs(),
-                getAllBroadcastMessages()
+                getAllPosts(),
+                getAllResources(),
+                getAllBlogs(),
+                getAllBroadcastMessages(),
+                getAllFeedbacks()
             ]);
             setPendingUsers(pendingUsersData);
             setAllUsers(allUsersData);
+            setPosts(postsData);
             setPendingResources(resources);
             setPendingBlogs(blogs);
+            setBroadcastMessages(broadcastData);
+            setFeedbacks(feedbacksData);
         } catch (err) {
             setError(`Failed to fetch data.`);
         } finally {
@@ -120,7 +132,7 @@ const AdminDashboard: React.FC = () => {
         
         try {
             await createBroadcastMessage(broadcastForm);
-            setBroadcastForm({title: '', message: ''});
+            resetBroadcastForm();
             setShowBroadcastModal({show: false});
             fetchData();
         } catch (err) {
@@ -138,11 +150,23 @@ const AdminDashboard: React.FC = () => {
         
         try {
             await updateBroadcastMessage(showBroadcastModal.editing.id, broadcastForm);
-            setBroadcastForm({title: '', message: ''});
+            resetBroadcastForm();
             setShowBroadcastModal({show: false});
             fetchData();
         } catch (err) {
             setError('Failed to update broadcast message');
+        }
+    };
+
+    const handleFeedbackStatusUpdate = async (feedbackId: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+        setApprovingId(feedbackId);
+        try {
+            await updateFeedbackStatus(feedbackId, status);
+            fetchData();
+        } catch (err: any) {
+            setError(err.message || 'Failed to update feedback status.');
+        } finally {
+            setApprovingId(null);
         }
     };
 
@@ -164,6 +188,145 @@ const AdminDashboard: React.FC = () => {
         }
     };
 
+    const handleToggleBroadcastVisibility = async (messageId: string) => {
+        try {
+            await toggleBroadcastMessageVisibility(messageId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to toggle broadcast message visibility');
+        }
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        setApprovingId(postId);
+        try {
+            await adminDeletePost(postId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to delete post');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleRejectResource = async () => {
+        if (!showRejectModal.item) return;
+        
+        setApprovingId(showRejectModal.item.id);
+        try {
+            await rejectResource(showRejectModal.item.id, rejectionReason);
+            setShowRejectModal({show: false, type: 'resource', item: null});
+            setRejectionReason('');
+            fetchData();
+        } catch (err) {
+            setError('Failed to reject resource');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleRejectBlog = async () => {
+        if (!showRejectModal.item) return;
+        
+        setApprovingId(showRejectModal.item.id);
+        try {
+            await rejectBlog(showRejectModal.item.id, rejectionReason);
+            setShowRejectModal({show: false, type: 'blog', item: null});
+            setRejectionReason('');
+            fetchData();
+        } catch (err) {
+            setError('Failed to reject blog');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleInactivateResource = async (resourceId: string) => {
+        setApprovingId(resourceId);
+        try {
+            await inactivateResource(resourceId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to inactivate resource');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleInactivateBlog = async (blogId: string) => {
+        setApprovingId(blogId);
+        try {
+            await inactivateBlog(blogId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to inactivate blog');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleReactivateResource = async (resourceId: string) => {
+        setApprovingId(resourceId);
+        try {
+            await reactivateResource(resourceId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to reactivate resource');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleReactivateBlog = async (blogId: string) => {
+        setApprovingId(blogId);
+        try {
+            await reactivateBlog(blogId);
+            fetchData();
+        } catch (err) {
+            setError('Failed to reactivate blog');
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleImageUpload = async (file: File) => {
+        try {
+            setUploadingImage(true);
+            const response = await uploadImage(file);
+            setBroadcastForm(prev => ({ ...prev, imageUrl: response.imageUrl }));
+            setImagePreview(URL.createObjectURL(file));
+        } catch (err) {
+            setError('Failed to upload image');
+        } finally {
+            setUploadingImage(false);
+        }
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+            handleImageUpload(file);
+        }
+    };
+
+    const resetBroadcastForm = () => {
+        setBroadcastForm({ title: '', message: '', imageUrl: '' });
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
+    const populateBroadcastForm = (message: BroadcastMessage) => {
+        setBroadcastForm({
+            title: message.title,
+            message: message.message,
+            imageUrl: message.imageUrl || ''
+        });
+        setImagePreview(message.imageUrl || null);
+        setImageFile(null);
+    };
+
     const renderContent = () => {
         if (loading) return <div className="flex justify-center mt-8"><Spinner size="lg" color="teal" /></div>;
         if (error) return <p className="text-center text-red-500 mt-4">{error}</p>;
@@ -183,21 +346,58 @@ const AdminDashboard: React.FC = () => {
                         approvingId={approvingId}
                     />
                 ) : <p className="text-gray-500 text-center py-8">No users found.</p>;
+            case 'POSTS':
+                return posts.length > 0 ? (
+                    <PostsTable 
+                        posts={posts} 
+                        onDelete={handleDeletePost}
+                        approvingId={approvingId}
+                    />
+                ) : <p className="text-gray-500 text-center py-8">No posts found.</p>;
             case 'RESOURCES':
                  return pendingResources.length > 0 ? (
-                    <ResourceTable resources={pendingResources} onView={setViewingItem} />
-                ) : <p className="text-gray-500 text-center py-8">No pending resource approvals.</p>;
+                    <ResourceTable 
+                        resources={pendingResources} 
+                        onView={setViewingItem} 
+                        onApprove={handleApprove}
+                        onReject={(resource) => setShowRejectModal({show: true, type: 'resource', item: resource})}
+                        onInactivate={handleInactivateResource}
+                        onReactivate={handleReactivateResource}
+                        approvingId={approvingId}
+                    />
+                ) : <p className="text-gray-500 text-center py-8">No resources found.</p>;
             case 'BLOGS':
                 return pendingBlogs.length > 0 ? (
-                    <BlogTable blogs={pendingBlogs} onView={setViewingItem} />
-                ) : <p className="text-gray-500 text-center py-8">No pending blog approvals.</p>;
+                    <BlogTable 
+                        blogs={pendingBlogs} 
+                        onView={setViewingItem} 
+                        onApprove={handleApprove}
+                        onReject={(blog) => setShowRejectModal({show: true, type: 'blog', item: blog})}
+                        onInactivate={handleInactivateBlog}
+                        onReactivate={handleReactivateBlog}
+                        approvingId={approvingId}
+                    />
+                ) : <p className="text-gray-500 text-center py-8">No blogs found.</p>;
             case 'BROADCAST_MESSAGES':
                 return <BroadcastMessagesTable 
                     messages={broadcastMessages} 
-                    onCreateNew={() => setShowBroadcastModal({show: true})}
-                    onEdit={(message) => setShowBroadcastModal({show: true, editing: message})}
+                    onCreateNew={() => {
+                        resetBroadcastForm();
+                        setShowBroadcastModal({show: true});
+                    }}
+                    onEdit={(message) => {
+                        populateBroadcastForm(message);
+                        setShowBroadcastModal({show: true, editing: message});
+                    }}
                     onDelete={handleDeleteBroadcastMessage}
                     onToggleActive={handleToggleBroadcastMessage}
+                    onToggleVisibility={handleToggleBroadcastVisibility}
+                />;
+            case 'FEEDBACKS':
+                return <FeedbackTable 
+                    feedbacks={feedbacks} 
+                    onStatusUpdate={handleFeedbackStatusUpdate}
+                    isUpdating={approvingId !== null}
                 />;
             default:
                 return null;
@@ -210,11 +410,52 @@ const AdminDashboard: React.FC = () => {
             <div className="flex border-b mb-6">
                 <TabButton title="Pending Users" count={pendingUsers.length} activeTab={activeTab} onClick={() => setActiveTab('PENDING_USERS')} />
                 <TabButton title="All Users" count={allUsers.length} activeTab={activeTab} onClick={() => setActiveTab('ALL_USERS')} />
+                <TabButton title="Posts" count={posts.length} activeTab={activeTab} onClick={() => setActiveTab('POSTS')} />
                 <TabButton title="Resources" count={pendingResources.length} activeTab={activeTab} onClick={() => setActiveTab('RESOURCES')} />
                 <TabButton title="Blogs" count={pendingBlogs.length} activeTab={activeTab} onClick={() => setActiveTab('BLOGS')} />
                 <TabButton title="Broadcast Messages" count={broadcastMessages.length} activeTab={activeTab} onClick={() => setActiveTab('BROADCAST_MESSAGES')} />
+                <TabButton title="Feedbacks" count={feedbacks.length} activeTab={activeTab} onClick={() => setActiveTab('FEEDBACKS')} />
             </div>
             {renderContent()}
+            
+            {/* Rejection Reason Modal */}
+            {showRejectModal.show && showRejectModal.item && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">
+                            Reject {showRejectModal.type === 'resource' ? 'Resource' : 'Blog'}
+                        </h3>
+                        <p className="text-gray-600 mb-4">
+                            Please provide a reason for rejecting "{showRejectModal.item.title}":
+                        </p>
+                        <textarea
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 resize-y"
+                            rows={4}
+                            placeholder="Enter rejection reason..."
+                        />
+                        <div className="flex justify-end space-x-3 mt-6">
+                            <button 
+                                onClick={() => {
+                                    setShowRejectModal({show: false, type: 'resource', item: null});
+                                    setRejectionReason('');
+                                }}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={showRejectModal.type === 'resource' ? handleRejectResource : handleRejectBlog}
+                                disabled={!rejectionReason.trim() || approvingId === showRejectModal.item.id}
+                                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold flex items-center justify-center w-24"
+                            >
+                                {approvingId === showRejectModal.item.id ? <Spinner /> : 'Reject'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* Confirmation Modal */}
             {showConfirmModal.show && showConfirmModal.user && (
@@ -277,6 +518,41 @@ const AdminDashboard: React.FC = () => {
                                 />
                             </div>
                             <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Image Upload (Optional)</label>
+                                <div className="flex items-center space-x-4">
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileChange}
+                                        className="hidden"
+                                        id="image-upload"
+                                        disabled={uploadingImage}
+                                    />
+                                    <label
+                                        htmlFor="image-upload"
+                                        className={`px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors ${
+                                            uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                    >
+                                        {uploadingImage ? 'Uploading...' : 'Choose Image'}
+                                    </label>
+                                    {broadcastForm.imageUrl && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setBroadcastForm(prev => ({ ...prev, imageUrl: '' }));
+                                                setImagePreview(null);
+                                                setImageFile(null);
+                                            }}
+                                            className="px-3 py-2 text-sm text-red-600 hover:text-red-800"
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">Upload a logo or advertisement image for your broadcast message</p>
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
                                 <textarea
                                     value={broadcastForm.message}
@@ -285,12 +561,25 @@ const AdminDashboard: React.FC = () => {
                                     placeholder="Enter your message to all users..."
                                 />
                             </div>
+                            {(imagePreview || broadcastForm.imageUrl) && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Image Preview</label>
+                                    <img 
+                                        src={imagePreview || (broadcastForm.imageUrl.startsWith('http') ? broadcastForm.imageUrl : `http://localhost:5000${broadcastForm.imageUrl}`)} 
+                                        alt="Preview" 
+                                        className="h-32 w-32 object-cover rounded-md border"
+                                        onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                </div>
+                            )}
                         </div>
                         <div className="flex justify-end space-x-3 mt-6">
                             <button 
                                 onClick={() => {
                                     setShowBroadcastModal({show: false});
-                                    setBroadcastForm({title: '', message: ''});
+                                    resetBroadcastForm();
                                 }}
                                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
                             >
@@ -382,28 +671,122 @@ const AllUsersTable: React.FC<{
     </TableWrapper>
 );
 
-const ResourceTable: React.FC<{resources: Resource[], onView: (resource: Resource) => void}> = ({ resources, onView }) => (
-    <TableWrapper headers={["Author", "Title", "Type", "Status", "Action"]}>
+const ResourceTable: React.FC<{resources: Resource[], onView: (resource: Resource) => void, onApprove: (resourceId: string) => void, onReject: (resource: Resource) => void, onInactivate: (resourceId: string) => void, onReactivate: (resourceId: string) => void, approvingId: string | null}> = ({ resources, onView, onApprove, onReject, onInactivate, onReactivate, approvingId }) => (
+    <TableWrapper headers={["Author", "Title", "Type", "Status", "Actions"]}>
         {resources.map(res => (
             <tr key={res.id} className="border-b border-gray-200 hover:bg-gray-50">
                 <td className="py-3 px-4">{res.author.name}</td>
                 <td className="py-3 px-4">{res.title}</td>
                 <td className="py-3 px-4">{res.type}</td>
-                <td className="py-3 px-4"><StatusBadge text={res.status} /></td>
-                <td className="py-3 px-4"><ViewButton onView={() => onView(res)} /></td>
+                <td className="py-3 px-4">
+                    <StatusBadge text={res.status} />
+                    {res.rejectionReason && (
+                        <div className="text-xs text-red-600 mt-1">
+                            Reason: {res.rejectionReason}
+                        </div>
+                    )}
+                </td>
+                <td className="py-3 px-4">
+                    <div className="flex space-x-2">
+                        <ViewButton onView={() => onView(res)} />
+                        {res.status === 'PENDING' && (
+                            <>
+                                <button
+                                    onClick={() => onApprove(res.id)}
+                                    disabled={approvingId === res.id}
+                                    className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:bg-gray-300"
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => onReject(res)}
+                                    disabled={approvingId === res.id}
+                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:bg-gray-300"
+                                >
+                                    Reject
+                                </button>
+                            </>
+                        )}
+                        {(res.status === 'APPROVED' || res.status === 'REJECTED') && (
+                            <button
+                                onClick={() => onInactivate(res.id)}
+                                disabled={approvingId === res.id}
+                                className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:bg-gray-300"
+                            >
+                                Inactivate
+                            </button>
+                        )}
+                        {res.status === 'INACTIVE' && (
+                            <button
+                                onClick={() => onReactivate(res.id)}
+                                disabled={approvingId === res.id}
+                                className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:bg-gray-300"
+                            >
+                                Reactivate
+                            </button>
+                        )}
+                    </div>
+                </td>
             </tr>
         ))}
     </TableWrapper>
 );
 
-const BlogTable: React.FC<{blogs: Blog[], onView: (blog: Blog) => void}> = ({ blogs, onView }) => (
-     <TableWrapper headers={["Author", "Title", "Status", "Action"]}>
+const BlogTable: React.FC<{blogs: Blog[], onView: (blog: Blog) => void, onApprove: (blogId: string) => void, onReject: (blog: Blog) => void, onInactivate: (blogId: string) => void, onReactivate: (blogId: string) => void, approvingId: string | null}> = ({ blogs, onView, onApprove, onReject, onInactivate, onReactivate, approvingId }) => (
+     <TableWrapper headers={["Author", "Title", "Status", "Actions"]}>
         {blogs.map(blog => (
             <tr key={blog.id} className="border-b border-gray-200 hover:bg-gray-50">
                 <td className="py-3 px-4">{blog.author.name}</td>
                 <td className="py-3 px-4">{blog.title}</td>
-                <td className="py-3 px-4"><StatusBadge text={blog.status} /></td>
-                <td className="py-3 px-4"><ViewButton onView={() => onView(blog)} /></td>
+                <td className="py-3 px-4">
+                    <StatusBadge text={blog.status} />
+                    {blog.rejectionReason && (
+                        <div className="text-xs text-red-600 mt-1">
+                            Reason: {blog.rejectionReason}
+                        </div>
+                    )}
+                </td>
+                <td className="py-3 px-4">
+                    <div className="flex space-x-2">
+                        <ViewButton onView={() => onView(blog)} />
+                        {blog.status === 'PENDING' && (
+                            <>
+                                <button
+                                    onClick={() => onApprove(blog.id)}
+                                    disabled={approvingId === blog.id}
+                                    className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:bg-gray-300"
+                                >
+                                    Approve
+                                </button>
+                                <button
+                                    onClick={() => onReject(blog)}
+                                    disabled={approvingId === blog.id}
+                                    className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600 disabled:bg-gray-300"
+                                >
+                                    Reject
+                                </button>
+                            </>
+                        )}
+                        {(blog.status === 'APPROVED' || blog.status === 'REJECTED') && (
+                            <button
+                                onClick={() => onInactivate(blog.id)}
+                                disabled={approvingId === blog.id}
+                                className="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:bg-gray-300"
+                            >
+                                Inactivate
+                            </button>
+                        )}
+                        {blog.status === 'INACTIVE' && (
+                            <button
+                                onClick={() => onReactivate(blog.id)}
+                                disabled={approvingId === blog.id}
+                                className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:bg-gray-300"
+                            >
+                                Reactivate
+                            </button>
+                        )}
+                    </div>
+                </td>
             </tr>
         ))}
     </TableWrapper>
@@ -435,12 +818,14 @@ const ViewButton: React.FC<{onView: () => void}> = ({ onView }) => (
 );
 
 const StatusBadge: React.FC<{text: string}> = ({ text }) => {
-    const getBadgeClasses = (role: string) => {
-        switch (role) {
+    const getBadgeClasses = (status: string) => {
+        switch (status) {
             case 'ADMIN': return 'bg-purple-200 text-purple-800';
             case 'NURSE': return 'bg-green-200 text-green-800';
             case 'PENDING': return 'bg-yellow-200 text-yellow-800';
-            case 'INACTIVE': return 'bg-red-200 text-red-800';
+            case 'APPROVED': return 'bg-green-200 text-green-800';
+            case 'REJECTED': return 'bg-red-200 text-red-800';
+            case 'INACTIVE': return 'bg-gray-200 text-gray-800';
             default: return 'bg-gray-200 text-gray-800';
         }
     };
@@ -491,77 +876,333 @@ const DeleteButton: React.FC<{
     </button>
 );
 
+const PostsTable: React.FC<{ posts: Post[], onDelete: (postId: string) => void, approvingId: string | null }> = ({ posts, onDelete, approvingId }) => {
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                    <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tags</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                    {posts.map((post) => (
+                        <tr key={post.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                    <img 
+                                        src={post.author.avatarUrl || '/avatar.jpg'} 
+                                        alt={post.author.name} 
+                                        className="h-10 w-10 rounded-full object-cover"
+                                    />
+                                    <div className="ml-4">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {post.displayName || post.author.name}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            {post.author.email}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900 max-w-xs truncate">
+                                    {post.text}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex flex-wrap gap-1">
+                                    {post.tags?.slice(0, 2).map(tag => (
+                                        <span key={tag} className="inline-flex px-2 py-1 text-xs font-medium bg-teal-100 text-teal-800 rounded-full">
+                                            #{tag}
+                                        </span>
+                                    ))}
+                                    {post.tags && post.tags.length > 2 && (
+                                        <span className="text-xs text-gray-500">+{post.tags.length - 2} more</span>
+                                    )}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {formatDate(post.createdAt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button
+                                    onClick={() => onDelete(post.id)}
+                                    disabled={approvingId === post.id}
+                                    className="text-red-600 hover:text-red-900 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                >
+                                    {approvingId === post.id ? 'Deleting...' : 'Delete'}
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+const FeedbackTable: React.FC<{ feedbacks: Feedback[], onStatusUpdate: (id: string, status: 'APPROVED' | 'REJECTED' | 'PENDING') => void, isUpdating: boolean }> = ({ feedbacks, onStatusUpdate, isUpdating }) => {
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'APPROVED': return 'bg-green-100 text-green-800';
+            case 'REJECTED': return 'bg-red-100 text-red-800';
+            case 'PENDING': return 'bg-yellow-100 text-yellow-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getRatingStars = (rating: number) => {
+        return '★'.repeat(rating) + '☆'.repeat(5 - rating);
+    };
+
+    if (feedbacks.length === 0) {
+        return <p className="text-gray-500 text-center py-8">No feedback submitted yet.</p>;
+    }
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                    <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feedback</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                    {feedbacks.map((feedback) => (
+                        <tr key={feedback.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center">
+                                    <img 
+                                        src={feedback.author?.avatarUrl || '/avatar.jpg'} 
+                                        alt={feedback.author?.name || 'User'} 
+                                        className="h-10 w-10 rounded-full object-cover"
+                                    />
+                                    <div className="ml-4">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {feedback.author?.name || 'Unknown User'}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            {feedback.author?.title || 'Healthcare Professional'}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-yellow-400 text-lg">
+                                    {getRatingStars(feedback.rating)}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <div className="text-sm text-gray-900 max-w-xs truncate">
+                                    {feedback.content}
+                                </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(feedback.status)}`}>
+                                    {feedback.status}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {formatDate(feedback.createdAt)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                {feedback.status !== 'APPROVED' && (
+                                    <button
+                                        onClick={() => onStatusUpdate(feedback.id, 'APPROVED')}
+                                        disabled={isUpdating}
+                                        className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                    >
+                                        Approve
+                                    </button>
+                                )}
+                                {feedback.status !== 'REJECTED' && (
+                                    <button
+                                        onClick={() => onStatusUpdate(feedback.id, 'REJECTED')}
+                                        disabled={isUpdating}
+                                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                    >
+                                        Reject
+                                    </button>
+                                )}
+                                {feedback.status !== 'PENDING' && (
+                                    <button
+                                        onClick={() => onStatusUpdate(feedback.id, 'PENDING')}
+                                        disabled={isUpdating}
+                                        className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50"
+                                    >
+                                        Pending
+                                    </button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+};
+
+// Broadcast Messages Table Component
 const BroadcastMessagesTable: React.FC<{
     messages: BroadcastMessage[];
     onCreateNew: () => void;
     onEdit: (message: BroadcastMessage) => void;
     onDelete: (messageId: string) => void;
     onToggleActive: (messageId: string, isActive: boolean) => void;
-}> = ({ messages, onCreateNew, onEdit, onDelete, onToggleActive }) => (
-    <div className="space-y-4">
-        <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-800">Broadcast Messages</h3>
-            <button
-                onClick={onCreateNew}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 font-semibold"
-            >
-                Create New Message
-            </button>
-        </div>
-        
-        {messages.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No broadcast messages found.</p>
-        ) : (
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                <ul className="divide-y divide-gray-200">
-                    {messages.map((message) => (
-                        <li key={message.id} className={`px-6 py-4 ${message.isActive ? 'bg-green-50' : 'bg-gray-50'}`}>
-                            <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                    <div className="flex items-center space-x-3">
-                                        <h4 className="text-sm font-medium text-gray-900">{message.title}</h4>
-                                        {message.isActive && (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                Active
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="mt-1 text-sm text-gray-600 line-clamp-2">{message.message}</p>
-                                    <p className="mt-1 text-xs text-gray-500">
-                                        Created: {new Date(message.createdAt).toLocaleDateString()}
-                                    </p>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        onClick={() => onToggleActive(message.id, !message.isActive)}
-                                        className={`px-3 py-1 text-xs font-medium rounded-md ${
-                                            message.isActive
-                                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                        }`}
-                                    >
-                                        {message.isActive ? 'Deactivate' : 'Activate'}
-                                    </button>
-                                    <button
-                                        onClick={() => onEdit(message)}
-                                        className="px-3 py-1 text-xs font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(message.id)}
-                                        className="px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+    onToggleVisibility?: (messageId: string) => void;
+}> = ({ messages, onCreateNew, onEdit, onDelete, onToggleActive, onToggleVisibility }) => {
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-800">Broadcast Messages</h3>
+                <button
+                    onClick={onCreateNew}
+                    className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors"
+                >
+                    Create New Message
+                </button>
             </div>
-        )}
-    </div>
-);
+            
+            {messages.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No broadcast messages found.</p>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visibility</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {messages.map((message) => (
+                                <tr key={message.id} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {message.imageUrl ? (
+                                            <img 
+                                                src={message.imageUrl.startsWith('http') ? message.imageUrl : `http://localhost:5000${message.imageUrl}`} 
+                                                alt="Broadcast message" 
+                                                className="h-16 w-16 object-cover rounded-md"
+                                                onError={(e) => {
+                                                    e.currentTarget.style.display = 'none';
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="h-16 w-16 bg-gray-200 rounded-md flex items-center justify-center">
+                                                <span className="text-gray-400 text-xs">No Image</span>
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                                            {message.title}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="text-sm text-gray-600 max-w-xs truncate">
+                                            {message.message}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                            message.isActive 
+                                                ? 'bg-green-100 text-green-800' 
+                                                : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {message.isActive ? 'Active' : 'Inactive'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                            message.isVisible 
+                                                ? 'bg-blue-100 text-blue-800' 
+                                                : 'bg-red-100 text-red-800'
+                                        }`}>
+                                            {message.isVisible ? 'Visible' : 'Hidden'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {new Date(message.createdAt).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                        <button
+                                            onClick={() => onEdit(message)}
+                                            className="text-indigo-600 hover:text-indigo-900"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => onToggleActive(message.id, !message.isActive)}
+                                            className={`${
+                                                message.isActive 
+                                                    ? 'text-yellow-600 hover:text-yellow-900' 
+                                                    : 'text-green-600 hover:text-green-900'
+                                            }`}
+                                        >
+                                            {message.isActive ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        {onToggleVisibility && (
+                                            <button
+                                                onClick={() => onToggleVisibility(message.id)}
+                                                className={`${
+                                                    message.isVisible 
+                                                        ? 'text-red-600 hover:text-red-900' 
+                                                        : 'text-blue-600 hover:text-blue-900'
+                                                }`}
+                                            >
+                                                {message.isVisible ? 'Hide' : 'Show'}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={() => onDelete(message.id)}
+                                            className="text-red-600 hover:text-red-900"
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default AdminDashboard;

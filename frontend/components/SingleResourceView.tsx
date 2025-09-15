@@ -86,13 +86,27 @@ const SingleResourceView: React.FC<SingleResourceViewProps> = ({ resource, navig
                 </div>
             </div>
              <style>{`
-                .resource-content p,
-                .resource-content li {
-                    line-height: 1.75;
+                .resource-content {
+                    line-height: 1.8;
                 }
+                .resource-content p {
+                    margin-bottom: 1.5rem;
+                }
+                .resource-content h1, .resource-content h2, .resource-content h3, .resource-content h4, .resource-content h5, .resource-content h6 {
+                    font-weight: 700;
+                    margin-top: 2rem;
+                    margin-bottom: 1rem;
+                    color: #1f2937;
+                }
+                .resource-content h1 { font-size: 2.25rem; }
+                .resource-content h2 { font-size: 1.875rem; }
+                .resource-content h3 { font-size: 1.5rem; }
+                .resource-content h4 { font-size: 1.25rem; }
+                .resource-content h5 { font-size: 1.125rem; }
+                .resource-content h6 { font-size: 1rem; }
                 .resource-content ul, .resource-content ol {
-                    padding-left: 1.5rem;
-                    margin-bottom: 1.25rem;
+                    padding-left: 2rem;
+                    margin-bottom: 1.5rem;
                 }
                 .resource-content ul {
                     list-style-type: disc;
@@ -100,24 +114,83 @@ const SingleResourceView: React.FC<SingleResourceViewProps> = ({ resource, navig
                 .resource-content ol {
                     list-style-type: decimal;
                 }
+                .resource-content li {
+                    margin-bottom: 0.5rem;
+                }
+                .resource-content blockquote {
+                    border-left: 4px solid #14b8a6;
+                    padding-left: 1.5rem;
+                    margin: 2rem 0;
+                    font-style: italic;
+                    color: #6b7280;
+                    background-color: #f9fafb;
+                    padding: 1rem 1.5rem;
+                    border-radius: 0.5rem;
+                }
+                .resource-content img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 0.5rem;
+                    margin: 1.5rem 0;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                }
+                .resource-content video {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 0.5rem;
+                    margin: 1.5rem 0;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                }
+                .resource-content table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 1.5rem 0;
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+                }
+                .resource-content th, .resource-content td {
+                    border: 1px solid #e5e7eb;
+                    padding: 0.75rem;
+                    text-align: left;
+                }
+                .resource-content th {
+                    background-color: #f9fafb;
+                    font-weight: 600;
+                }
+                .resource-content code {
+                    background-color: #f3f4f6;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.25rem;
+                    font-family: 'Courier New', monospace;
+                    font-size: 0.875rem;
+                }
+                .resource-content pre {
+                    background-color: #1f2937;
+                    color: #f9fafb;
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    overflow-x: auto;
+                    margin: 1.5rem 0;
+                }
+                .resource-content pre code {
+                    background-color: transparent;
+                    padding: 0;
+                    color: inherit;
+                }
+                .resource-content strong {
+                    font-weight: 700;
+                }
+                .resource-content em {
+                    font-style: italic;
+                }
                 .resource-content a {
-                    color: #0d9488; /* tailwind teal-600 */
+                    color: #14b8a6;
                     text-decoration: underline;
                 }
                 .resource-content a:hover {
-                    color: #0f766e; /* tailwind teal-700 */
+                    color: #0d9488;
                 }
-                .resource-content h1, .resource-content h2, .resource-content h3 {
-                    font-weight: 700;
-                    margin-bottom: 0.75rem;
-                    margin-top: 1.5rem;
-                    line-height: 1.2;
-                }
-                .resource-content h1 { font-size: 1.875rem; }
-                .resource-content h2 { font-size: 1.5rem; }
-                .resource-content h3 { font-size: 1.25rem; }
-                 .resource-content strong { font-weight: 700; }
-                .resource-content em { font-style: italic; }
             `}</style>
         </div>
     );

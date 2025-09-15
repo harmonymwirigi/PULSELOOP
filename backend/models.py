@@ -36,6 +36,7 @@ class User(db.Model):
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade="all, delete-orphan")
     broadcast_messages = db.relationship('BroadcastMessage', backref='creator', lazy=True)
     comments = db.relationship('Comment', backref='author', lazy=True)
+    feedbacks = db.relationship('Feedback', backref='author', lazy=True, cascade="all, delete-orphan")
 
     def calculate_profile_completion_percentage(self):
         fields_to_check = [self.title, self.department, self.state, self.bio]
@@ -226,7 +227,9 @@ class BroadcastMessage(db.Model):
     id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
     title = db.Column(db.Text, nullable=False)
     message = db.Column(db.Text, nullable=False)
+    image_url = db.Column(db.Text, nullable=True)  # For advertisement logos/images
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_visible = db.Column(db.Boolean, nullable=False, default=True)  # For admin to hide/show
     created_by = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
@@ -236,7 +239,9 @@ class BroadcastMessage(db.Model):
             "id": str(self.id),
             "title": self.title,
             "message": self.message,
+            "imageUrl": self.image_url,
             "isActive": self.is_active,
+            "isVisible": self.is_visible,
             "createdBy": str(self.created_by),
             "createdAt": self.created_at.isoformat(),
             "updatedAt": self.updated_at.isoformat(),
@@ -253,13 +258,15 @@ class Resource(db.Model):
     content = db.Column(db.Text)
     file_url = db.Column(db.Text)
     status = db.Column(db.String(50), nullable=False, default='PENDING')
+    rejection_reason = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
 
     def to_dict(self):
         return {
             "id": str(self.id), "title": self.title, "description": self.description, "authorId": str(self.author_id),
             "type": self.type, "content": self.content, "fileUrl": self.file_url, "status": self.status,
-            "created_at": self.created_at.isoformat(), "author": self.author.to_dict() if self.author else None
+            "rejectionReason": self.rejection_reason, "created_at": self.created_at.isoformat(), 
+            "author": self.author.to_dict() if self.author else None
         }
 
 class Blog(db.Model):
@@ -270,13 +277,14 @@ class Blog(db.Model):
     content = db.Column(db.Text, nullable=False)
     cover_image_url = db.Column(db.Text)
     status = db.Column(db.String(50), nullable=False, default='PENDING')
+    rejection_reason = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
 
     def to_dict(self):
         return {
             "id": str(self.id), "title": self.title, "content": self.content, "authorId": str(self.author_id),
-            "coverImageUrl": self.cover_image_url, "status": self.status, "created_at": self.created_at.isoformat(),
-            "author": self.author.to_dict() if self.author else None
+            "coverImageUrl": self.cover_image_url, "status": self.status, "rejectionReason": self.rejection_reason,
+            "created_at": self.created_at.isoformat(), "author": self.author.to_dict() if self.author else None
         }
 
 class Invitation(db.Model):
@@ -315,4 +323,26 @@ class PasswordReset(db.Model):
             "expiresAt": self.expires_at.isoformat(),
             "used": self.used,
             "createdAt": self.created_at.isoformat()
+        }
+
+class Feedback(db.Model):
+    __tablename__ = 'feedbacks'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    user_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)  # 1-5 star rating
+    status = db.Column(db.String(50), nullable=False, default='PENDING')  # PENDING, APPROVED, REJECTED
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "userId": str(self.user_id),
+            "content": self.content,
+            "rating": self.rating,
+            "status": self.status,
+            "createdAt": self.created_at.isoformat(),
+            "updatedAt": self.updated_at.isoformat(),
+            "author": self.author.to_dict() if self.author else None
         }

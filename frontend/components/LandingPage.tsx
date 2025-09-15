@@ -2,8 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AuthModal from './AuthModal';
 import PrivacyPolicy from './PrivacyPolicy';
 import Logo from './Logo';
+import { getPublicBlogs, getPublicFeedbacks, getActiveBroadcastMessage } from '../services/mockApi';
+import { Blog, Feedback, BroadcastMessage } from '../types';
 
-const testimonials = [
+// Fallback testimonials in case no feedback is available
+const fallbackTestimonials = [
     { 
         quote: "PulseLoopCare has become an indispensable tool for my practice. The ability to quickly get a second opinion on a complex case from a trusted network is invaluable.",
         name: "Dr. Emily Carter",
@@ -50,6 +53,14 @@ const LandingPage: React.FC = () => {
     const [currentTestimonial, setCurrentTestimonial] = useState(0);
     const [currentHeroMessage, setCurrentHeroMessage] = useState(0);
     const [showPolicy, setShowPolicy] = useState(false);
+    const [showBlogs, setShowBlogs] = useState(false);
+    const [blogs, setBlogs] = useState<Blog[]>([]);
+    const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
+    const [blogsLoading, setBlogsLoading] = useState(false);
+    const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+    const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+    const [broadcastMessage, setBroadcastMessage] = useState<BroadcastMessage | null>(null);
+    const [broadcastLoading, setBroadcastLoading] = useState(false);
 
     const openModal = (mode: 'login' | 'signup', token: string | null = null) => {
         setModalMode(mode);
@@ -60,6 +71,62 @@ const LandingPage: React.FC = () => {
     const viewPolicy = () => {
         setIsModalOpen(false);
         setShowPolicy(true);
+    };
+
+    const fetchBlogs = useCallback(async () => {
+        try {
+            setBlogsLoading(true);
+            const fetchedBlogs = await getPublicBlogs();
+            setBlogs(fetchedBlogs);
+        } catch (err) {
+            console.error('Failed to fetch blogs:', err);
+        } finally {
+            setBlogsLoading(false);
+        }
+    }, []);
+
+    const fetchFeedbacks = useCallback(async () => {
+        try {
+            setFeedbacksLoading(true);
+            const fetchedFeedbacks = await getPublicFeedbacks();
+            setFeedbacks(fetchedFeedbacks);
+        } catch (err) {
+            console.error('Failed to fetch feedbacks:', err);
+        } finally {
+            setFeedbacksLoading(false);
+        }
+    }, []);
+
+    const fetchBroadcastMessage = useCallback(async () => {
+        try {
+            setBroadcastLoading(true);
+            const response = await getActiveBroadcastMessage();
+            setBroadcastMessage(response.message);
+        } catch (err) {
+            console.error('Failed to fetch broadcast message:', err);
+        } finally {
+            setBroadcastLoading(false);
+        }
+    }, []);
+
+    const handleShowBlogs = () => {
+        setShowBlogs(true);
+        if (blogs.length === 0) {
+            fetchBlogs();
+        }
+    };
+
+    const handleBlogClick = (blog: Blog) => {
+        setSelectedBlog(blog);
+    };
+
+    const handleBackToBlogs = () => {
+        setSelectedBlog(null);
+    };
+
+    const handleBackToLanding = () => {
+        setShowBlogs(false);
+        setSelectedBlog(null);
     };
 
     useEffect(() => {
@@ -73,11 +140,13 @@ const LandingPage: React.FC = () => {
     }, []);
     
     const nextTestimonial = useCallback(() => {
-        setCurrentTestimonial(prev => (prev + 1) % testimonials.length);
-    }, []);
+        const testimonialsData = feedbacks.length > 0 ? feedbacks : fallbackTestimonials;
+        setCurrentTestimonial(prev => (prev + 1) % testimonialsData.length);
+    }, [feedbacks]);
 
     const prevTestimonial = () => {
-        setCurrentTestimonial(prev => (prev - 1 + testimonials.length) % testimonials.length);
+        const testimonialsData = feedbacks.length > 0 ? feedbacks : fallbackTestimonials;
+        setCurrentTestimonial(prev => (prev - 1 + testimonialsData.length) % testimonialsData.length);
     };
 
     const nextHeroMessage = useCallback(() => {
@@ -102,8 +171,20 @@ const LandingPage: React.FC = () => {
         return () => clearInterval(heroTimer);
     }, [nextHeroMessage]);
 
+    useEffect(() => {
+        fetchFeedbacks();
+        fetchBroadcastMessage();
+    }, [fetchFeedbacks, fetchBroadcastMessage]);
+
     if (showPolicy) {
         return <PrivacyPolicy onClose={() => setShowPolicy(false)} />;
+    }
+
+    if (showBlogs) {
+        if (selectedBlog) {
+            return <PublicSingleBlogView blog={selectedBlog} onBack={handleBackToBlogs} />;
+        }
+        return <PublicBlogsView blogs={blogs} loading={blogsLoading} onBlogClick={handleBlogClick} onBack={handleBackToLanding} />;
     }
 
     return (
@@ -124,13 +205,14 @@ const LandingPage: React.FC = () => {
                 <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-40 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
                     <div className="relative z-10 px-4 max-w-6xl mx-auto">
-                        {/* Trust Badge - Positioned at top */}
-                        <div className="mb-8 sm:mb-10">
-                            <div className="inline-flex items-center bg-white/10 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-semibold border border-white/20 shadow-lg">
-                                <svg className="w-5 h-5 mr-2 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
+                        {/* Trust Badge - Repositioned for better mobile/desktop layout */}
+                        <div className="mb-6 sm:mb-8">
+                            <div className="inline-flex items-center bg-white/10 backdrop-blur-md text-white px-4 py-2 sm:px-6 sm:py-3 rounded-full text-xs sm:text-sm font-semibold border border-white/20 shadow-lg">
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-teal-300" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
-                                Trusted by 10,000+ Healthcare Professionals
+                                <span className="hidden sm:inline">Trusted by 10,000+ Healthcare Professionals</span>
+                                <span className="sm:hidden">10,000+ Healthcare Professionals</span>
                             </div>
                         </div>
                         
@@ -193,12 +275,6 @@ const LandingPage: React.FC = () => {
                                 <svg className="w-5 h-5 text-teal-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
-                                HIPAA Compliant
-                            </div>
-                            <div className="flex items-center">
-                                <svg className="w-5 h-5 text-teal-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
                                 AI-Powered Insights
                             </div>
                             <div className="flex items-center">
@@ -246,6 +322,48 @@ const LandingPage: React.FC = () => {
                     </div>
                 </section>
 
+                {/* Broadcast Message Section */}
+                {broadcastMessage && (
+                    <section className="py-12 bg-gradient-to-r from-teal-50 to-blue-50 border-b border-gray-200">
+                        <div className="container mx-auto px-4">
+                            <div className="max-w-4xl mx-auto">
+                                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                                    <div className="p-8">
+                                        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                                            {broadcastMessage.imageUrl && (
+                                                <div className="flex-shrink-0">
+                                                    <img 
+                                                        src={broadcastMessage.imageUrl.startsWith('http') ? broadcastMessage.imageUrl : `http://localhost:5000${broadcastMessage.imageUrl}`} 
+                                                        alt="Announcement" 
+                                                        className="h-20 w-20 md:h-24 md:w-24 object-cover rounded-lg shadow-md"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            <div className="flex-1">
+                                                <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                                                    {broadcastMessage.title}
+                                                </h3>
+                                                <p className="text-gray-600 text-lg leading-relaxed mb-4">
+                                                    {broadcastMessage.message}
+                                                </p>
+                                                <div className="flex items-center text-sm text-gray-500">
+                                                    <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                                    </svg>
+                                                    <span>Posted {new Date(broadcastMessage.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
                 {/* How it Works Section */}
                  <section className="py-24 bg-gradient-to-br from-gray-50 to-blue-50">
                     <div className="container mx-auto px-4 text-center">
@@ -281,7 +399,7 @@ const LandingPage: React.FC = () => {
                     <div className="container mx-auto px-4 text-center">
                         <div className="mb-16">
                             <h3 className="text-4xl font-bold text-gray-800 mb-6">The Future of Medical Teamwork</h3>
-                            <p className="text-gray-600 max-w-2xl mx-auto text-lg">PulseLoopCare provides the tools you need to connect with peers, access vital resources, and stay at the forefront of medical innovation.</p>
+                            <p className="text-gray-600 max-w-2xl mx-auto text-lg">Pulseloopcare provides a social platform to connect with peers, access vital resources, and stay at the forefront of medical innovation.</p>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <FeatureCard 
@@ -313,13 +431,22 @@ const LandingPage: React.FC = () => {
                         </div>
                          <div className="relative max-w-2xl mx-auto">
                             <div className="overflow-hidden relative" style={{ height: '16rem' }}>
-                                {testimonials.map((testimonial, index) => (
+                                {feedbacksLoading ? (
+                                    <div className="flex justify-center items-center h-full">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+                                    </div>
+                                ) : (feedbacks.length > 0 ? feedbacks : fallbackTestimonials).map((testimonial, index) => (
                                      <div 
                                         key={index}
                                         className="absolute w-full h-full transition-transform duration-500 ease-in-out"
                                         style={{ transform: `translateX(${(index - currentTestimonial) * 100}%)` }}
                                      >
-                                        <TestimonialCard {...testimonial} />
+                                        <TestimonialCard 
+                                            quote={testimonial.quote || testimonial.content}
+                                            name={testimonial.name || testimonial.author?.name || 'Anonymous'}
+                                            role={testimonial.role || testimonial.author?.title || 'Healthcare Professional'}
+                                            avatarUrl={testimonial.avatarUrl || testimonial.author?.avatarUrl || '/avatar.jpg'}
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -329,6 +456,51 @@ const LandingPage: React.FC = () => {
                              <button onClick={nextTestimonial} className="absolute top-1/2 -right-4 md:-right-16 transform -translate-y-1/2 bg-white rounded-full p-2 shadow-md hover:bg-gray-100">
                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
+                            
+                            {/* Dots Indicator */}
+                            <div className="flex justify-center mt-6 space-x-2">
+                                {(feedbacks.length > 0 ? feedbacks : fallbackTestimonials).map((_, index) => (
+                                    <button
+                                        key={index}
+                                        onClick={() => setCurrentTestimonial(index)}
+                                        className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                            index === currentTestimonial 
+                                                ? 'bg-teal-500 shadow-lg' 
+                                                : 'bg-gray-300 hover:bg-gray-400'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Blog Section */}
+                <section className="py-24 bg-gradient-to-br from-gray-50 to-blue-50">
+                    <div className="container mx-auto px-4 text-center">
+                        <div className="mb-16">
+                            <h3 className="text-4xl font-bold text-gray-800 mb-6">Latest Insights from Our Community</h3>
+                            <p className="text-gray-600 max-w-2xl mx-auto text-lg">Discover thought-provoking articles, case studies, and insights shared by healthcare professionals worldwide.</p>
+                        </div>
+                        <div className="max-w-4xl mx-auto">
+                            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                                <div className="flex items-center justify-center mb-6">
+                                    <svg className="w-12 h-12 text-teal-500 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9M7 16h6M7 12h6M7 8h6" />
+                                    </svg>
+                                    <h4 className="text-2xl font-bold text-gray-800">Community Blog</h4>
+                                </div>
+                                <p className="text-gray-600 mb-8 text-lg">Explore articles written by healthcare professionals covering the latest trends, research findings, and best practices in medicine.</p>
+                                <button 
+                                    onClick={handleShowBlogs} 
+                                    className="group px-8 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full hover:from-teal-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 text-lg shadow-lg hover:shadow-xl flex items-center mx-auto"
+                                >
+                                    <svg className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9M7 16h6M7 12h6M7 8h6" />
+                                    </svg>
+                                    Explore All Articles
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -348,10 +520,57 @@ const LandingPage: React.FC = () => {
             </main>
 
             {/* Footer */}
-            <footer className="bg-gray-800 text-white py-6">
-                <div className="container mx-auto text-center text-gray-400">
-                    <p className="mb-2">&copy; {new Date().getFullYear()} PulseLoopCare. All rights reserved.</p>
-                    <button onClick={() => setShowPolicy(true)} className="hover:text-white underline transition-colors">Privacy Policy & Terms of Use</button>
+            <footer className="bg-gray-800 text-white py-8">
+                <div className="container mx-auto px-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                        {/* Contact Information */}
+                        <div className="text-center md:text-left">
+                            <h3 className="text-lg font-semibold text-white mb-4">Contact Us</h3>
+                            <div className="space-y-2 text-gray-300">
+                                <div className="flex items-center justify-center md:justify-start">
+                                    <svg className="w-5 h-5 mr-2 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                    <span>+1 (832) 334-1801</span>
+                                </div>
+                                <div className="flex items-center justify-center md:justify-start">
+                                    <svg className="w-5 h-5 mr-2 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>admin@pulseloopcare.com</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Company Info */}
+                        <div className="text-center">
+                            <h3 className="text-lg font-semibold text-white mb-4">PulseLoopCare</h3>
+                            <p className="text-gray-300 text-sm leading-relaxed">
+                                Connecting healthcare professionals through innovative collaboration tools and AI-powered insights.
+                            </p>
+                        </div>
+
+                        {/* Quick Links */}
+                        <div className="text-center md:text-right">
+                            <h3 className="text-lg font-semibold text-white mb-4">Quick Links</h3>
+                            <div className="space-y-2">
+                                <button onClick={() => setShowPolicy(true)} className="block text-gray-300 hover:text-white transition-colors text-sm">
+                                    Privacy Policy & Terms
+                                </button>
+                                <a href="#features" className="block text-gray-300 hover:text-white transition-colors text-sm">
+                                    Features
+                                </a>
+                                <a href="#testimonials" className="block text-gray-300 hover:text-white transition-colors text-sm">
+                                    Testimonials
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Bottom Bar */}
+                    <div className="border-t border-gray-700 pt-6 text-center text-gray-400">
+                        <p>&copy; {new Date().getFullYear()} PulseLoopCare. All rights reserved.</p>
+                    </div>
                 </div>
             </footer>
         </div>
@@ -396,5 +615,225 @@ const TestimonialCard: React.FC<{quote: string, name: string, role: string, avat
     </div>
 );
 
+// Public Blog Views
+const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: (blog: Blog) => void, onBack: () => void }> = ({ blogs, loading, onBlogClick, onBack }) => {
+    const stripHtml = (html: string) => {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        return doc.body.textContent || "";
+    };
+
+    const formatDate = (dateString: string | undefined | null): string => {
+        if (!dateString) return 'Date not available';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (error) {
+            return 'Date not available';
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-cyan-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="container mx-auto px-4 py-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <button 
+                                onClick={onBack}
+                                className="mr-4 p-2 text-gray-600 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                            </button>
+                            <Logo textColorClassName="text-teal-600" />
+                        </div>
+                        <div className="flex space-x-4">
+                            <button 
+                                onClick={() => window.location.href = '/#signup'}
+                                className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
+                            >
+                                Join Community
+                            </button>
+                            <button 
+                                onClick={() => window.location.href = '/#login'}
+                                className="px-6 py-2 border border-teal-500 text-teal-500 rounded-full hover:bg-teal-50 transition-colors font-medium"
+                            >
+                                Sign In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="container mx-auto px-4 py-12">
+                <div className="text-center mb-12">
+                    <h1 className="text-4xl font-bold text-gray-800 mb-4">Community Blog</h1>
+                    <p className="text-gray-600 text-lg max-w-2xl mx-auto">Insights, research, and stories from healthcare professionals around the world</p>
+                </div>
+
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+                    </div>
+                ) : blogs.length === 0 ? (
+                    <div className="text-center py-12">
+                        <p className="text-gray-500 text-lg">No blog posts available at the moment.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {blogs.map(blog => {
+                            const plainTextContent = stripHtml(blog.content);
+                            const previewContent = plainTextContent.substring(0, 150);
+                            
+                            return (
+                                <div 
+                                    key={blog.id}
+                                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer group"
+                                    onClick={() => onBlogClick(blog)}
+                                >
+                                    <div className="relative">
+                                        <img 
+                                            className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300" 
+                                            src={blog.coverImageUrl || "/blog.jpg"} 
+                                            alt={blog.title} 
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    </div>
+                                    <div className="p-6">
+                                        <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors line-clamp-2">{blog.title}</h3>
+                                        <div className="flex items-center text-sm text-gray-500 mb-4">
+                                            <img 
+                                                src={blog.author.avatarUrl || "/avatar.jpg"} 
+                                                alt={blog.author.name} 
+                                                className="w-8 h-8 rounded-full object-cover mr-3 border-2 border-white" 
+                                            />
+                                            <span>By <span className="font-semibold">{blog.author.name}</span></span>
+                                            <span className="mx-2">&middot;</span>
+                                            <span>{formatDate(blog.created_at)}</span>
+                                        </div>
+                                        <p className="text-gray-700 leading-relaxed text-sm">
+                                            {previewContent}{plainTextContent.length > 150 ? '...' : ''}
+                                        </p>
+                                        <div className="mt-4 text-teal-500 font-medium group-hover:text-teal-600 transition-colors">
+                                            Read Full Article &rarr;
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
+
+const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void }> = ({ blog, onBack }) => {
+    const formatDate = (dateString: string | undefined | null): string => {
+        if (!dateString) return 'Date not available';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (error) {
+            return 'Date not available';
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-cyan-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="container mx-auto px-4 py-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <button 
+                                onClick={onBack}
+                                className="mr-4 p-2 text-gray-600 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                            </button>
+                            <Logo textColorClassName="text-teal-600" />
+                        </div>
+                        <div className="flex space-x-4">
+                            <button 
+                                onClick={() => window.location.href = '/#signup'}
+                                className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
+                            >
+                                Join Community
+                            </button>
+                            <button 
+                                onClick={() => window.location.href = '/#login'}
+                                className="px-6 py-2 border border-teal-500 text-teal-500 rounded-full hover:bg-teal-50 transition-colors font-medium"
+                            >
+                                Sign In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="container mx-auto px-4 py-12">
+                <div className="max-w-4xl mx-auto">
+                    <article className="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div className="relative">
+                            <img 
+                                src={blog.coverImageUrl || "/blog.jpg"} 
+                                alt={blog.title} 
+                                className="w-full h-64 sm:h-80 object-cover"
+                            />
+                        </div>
+                        
+                        <div className="p-8">
+                            <header className="mb-8">
+                                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 leading-tight mb-4">{blog.title}</h1>
+                                <div className="flex items-center text-gray-600">
+                                    <img 
+                                        src={blog.author.avatarUrl || "/avatar.jpg"} 
+                                        alt={blog.author.name} 
+                                        className="w-12 h-12 rounded-full object-cover mr-4 border-2 border-teal-100"
+                                    />
+                                    <div>
+                                        <p className="font-semibold text-gray-800">{blog.author.name}</p>
+                                        <p className="text-sm">{formatDate(blog.created_at)}</p>
+                                    </div>
+                                </div>
+                            </header>
+
+                            <div 
+                                className="text-lg leading-relaxed space-y-6 text-gray-800 blog-content"
+                                dangerouslySetInnerHTML={{ __html: blog.content }}
+                            />
+                        </div>
+                    </article>
+                </div>
+            </main>
+
+            <style>{`
+                .blog-content p {
+                    margin-bottom: 1.25rem;
+                }
+                .blog-content ul {
+                    list-style-type: disc;
+                    padding-left: 2rem;
+                    margin-bottom: 1.25rem;
+                }
+                .blog-content strong {
+                    font-weight: 700;
+                }
+                .blog-content em {
+                    font-style: italic;
+                }
+            `}</style>
+        </div>
+    );
+};
 
 export default LandingPage;

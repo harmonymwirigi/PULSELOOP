@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Post, ReactionType, Role, Comment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { toggleReaction as apiToggleReaction, addComment as apiAddComment, updatePost as apiUpdatePost, reactToComment as apiReactToComment } from '../services/mockApi';
+import { toggleReaction as apiToggleReaction, addComment as apiAddComment, updatePost as apiUpdatePost, reactToComment as apiReactToComment, deletePost as apiDeletePost } from '../services/mockApi';
 import CommentSection from './CommentSection';
 import Spinner from './Spinner';
 
@@ -276,6 +276,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
         setPhiConfirmedOnEdit(false);
     };
 
+    const handleDeletePost = async () => {
+        try {
+            await apiDeletePost(post.id);
+            onUpdate(); // Refresh the parent component
+        } catch (error) {
+            console.error("Failed to delete post", error);
+            alert("Failed to delete post. Please try again.");
+        }
+    };
+
     const userHasReacted = (type: ReactionType) => user && reactions.some(r => r.userId === user.id && r.type === type);
     const countReactions = (type: ReactionType) => reactions.filter(r => r.type === type).length;
 
@@ -321,16 +331,29 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
                     </div>
                     <div className="flex items-center space-x-1">
                         {isAuthor && !isEditing && (
-                            <button
-                                onClick={() => {
-                                    setIsEditing(true);
-                                    setPhiConfirmedOnEdit(false);
-                                }}
-                                className="text-gray-500 hover:text-blue-600 p-1 rounded-full transition-colors"
-                                aria-label="Edit post"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => {
+                                        setIsEditing(true);
+                                        setPhiConfirmedOnEdit(false);
+                                    }}
+                                    className="text-gray-500 hover:text-blue-600 p-1 rounded-full transition-colors"
+                                    aria-label="Edit post"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if (window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+                                            handleDeletePost();
+                                        }
+                                    }}
+                                    className="text-gray-500 hover:text-red-600 p-1 rounded-full transition-colors"
+                                    aria-label="Delete post"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </>
                         )}
                         {!isSingleView && onNavigateToPost && (
                             <button 

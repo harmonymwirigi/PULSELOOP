@@ -1,6 +1,6 @@
 // frontend/services/mockApi.ts
 
-import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage } from '../types';
+import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const BACKEND_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -237,8 +237,38 @@ export const getPendingResources = async (): Promise<Resource[]> => {
     return handleApiResponse(response);
 };
 
+export const getAllResources = async (): Promise<Resource[]> => {
+    const response = await fetchWithAuth('/admin/all-resources');
+    return handleApiResponse(response);
+};
+
 export const approveResource = async (resourceId: string): Promise<Resource> => {
     const response = await fetchWithAuth(`/admin/approve-resource/${resourceId}`, { method: 'PUT' });
+    return handleApiResponse(response);
+};
+
+export const rejectResource = async (resourceId: string, rejectionReason: string): Promise<Resource> => {
+    const response = await fetchWithAuth(`/admin/reject-resource/${resourceId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rejectionReason }),
+    });
+    return handleApiResponse(response);
+};
+
+export const inactivateResource = async (resourceId: string): Promise<Resource> => {
+    const response = await fetchWithAuth(`/admin/inactivate-resource/${resourceId}`, {
+        method: 'PUT',
+    });
+    return handleApiResponse(response);
+};
+
+export const reactivateResource = async (resourceId: string): Promise<Resource> => {
+    const response = await fetchWithAuth(`/admin/reactivate-resource/${resourceId}`, {
+        method: 'PUT',
+    });
     return handleApiResponse(response);
 };
 
@@ -257,8 +287,78 @@ export const getPendingBlogs = async (): Promise<Blog[]> => {
     }));
 };
 
+export const getAllBlogs = async (): Promise<Blog[]> => {
+    const response = await fetchWithAuth('/admin/all-blogs');
+    const blogs = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return blogs.map((blog: Blog) => ({
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    }));
+};
+
 export const approveBlog = async (blogId: string): Promise<Blog> => {
     const response = await fetchWithAuth(`/admin/approve-blog/${blogId}`, { method: 'PUT' });
+    const blog = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return {
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    };
+};
+
+export const rejectBlog = async (blogId: string, rejectionReason: string): Promise<Blog> => {
+    const response = await fetchWithAuth(`/admin/reject-blog/${blogId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rejectionReason }),
+    });
+    const blog = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return {
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    };
+};
+
+export const inactivateBlog = async (blogId: string): Promise<Blog> => {
+    const response = await fetchWithAuth(`/admin/inactivate-blog/${blogId}`, {
+        method: 'PUT',
+    });
+    const blog = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return {
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    };
+};
+
+export const reactivateBlog = async (blogId: string): Promise<Blog> => {
+    const response = await fetchWithAuth(`/admin/reactivate-blog/${blogId}`, {
+        method: 'PUT',
+    });
     const blog = await handleApiResponse(response);
     
     // Convert relative URLs to absolute URLs for cover images and avatars
@@ -310,6 +410,21 @@ export const getBlogs = async (): Promise<Blog[]> => {
     }));
 };
 
+export const getPublicBlogs = async (): Promise<Blog[]> => {
+    const response = await fetch(`${API_BASE_URL}/public/blogs`);
+    const blogs = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for cover images and avatars
+    return blogs.map((blog: Blog) => ({
+        ...blog,
+        coverImageUrl: getAbsoluteUrl(blog.coverImageUrl),
+        author: {
+            ...blog.author,
+            avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    }));
+};
+
 export const createBlog = async (data: CreateBlogData): Promise<Blog> => {
     const formData = new FormData();
     formData.append('title', data.title);
@@ -333,6 +448,44 @@ export const createBlog = async (data: CreateBlogData): Promise<Blog> => {
             avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
         }
     };
+};
+
+// --- FEEDBACK ---
+export const createFeedback = async (content: string, rating: number): Promise<Feedback> => {
+    const response = await fetchWithAuth('/feedbacks', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content, rating }),
+    });
+    return handleApiResponse(response);
+};
+
+export const getPublicFeedbacks = async (): Promise<Feedback[]> => {
+    const response = await fetch(`${API_BASE_URL}/public/feedbacks`);
+    return handleApiResponse(response);
+};
+
+export const getUserFeedbacks = async (): Promise<Feedback[]> => {
+    const response = await fetchWithAuth('/feedbacks');
+    return handleApiResponse(response);
+};
+
+export const getAllFeedbacks = async (): Promise<Feedback[]> => {
+    const response = await fetchWithAuth('/admin/feedbacks');
+    return handleApiResponse(response);
+};
+
+export const updateFeedbackStatus = async (feedbackId: string, status: 'APPROVED' | 'REJECTED' | 'PENDING'): Promise<Feedback> => {
+    const response = await fetchWithAuth(`/admin/feedbacks/${feedbackId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+    });
+    return handleApiResponse(response);
 };
 
 // --- AI CHAT ---
@@ -435,7 +588,7 @@ export const getAllBroadcastMessages = async (): Promise<BroadcastMessage[]> => 
     return handleApiResponse(response);
 };
 
-export const createBroadcastMessage = async (data: { title: string; message: string }): Promise<BroadcastMessage> => {
+export const createBroadcastMessage = async (data: { title: string; message: string; imageUrl?: string }): Promise<BroadcastMessage> => {
     const response = await fetchWithAuth('/admin/broadcast-messages', {
         method: 'POST',
         headers: {
@@ -446,7 +599,7 @@ export const createBroadcastMessage = async (data: { title: string; message: str
     return handleApiResponse(response);
 };
 
-export const updateBroadcastMessage = async (messageId: string, data: { title?: string; message?: string; is_active?: boolean }): Promise<BroadcastMessage> => {
+export const updateBroadcastMessage = async (messageId: string, data: { title?: string; message?: string; imageUrl?: string; is_active?: boolean; is_visible?: boolean }): Promise<BroadcastMessage> => {
     const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}`, {
         method: 'PUT',
         headers: {
@@ -459,6 +612,54 @@ export const updateBroadcastMessage = async (messageId: string, data: { title?: 
 
 export const deleteBroadcastMessage = async (messageId: string): Promise<{ message: string }> => {
     const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
+export const toggleBroadcastMessageVisibility = async (messageId: string): Promise<{ message: string; isVisible: boolean }> => {
+    const response = await fetchWithAuth(`/admin/broadcast-messages/${messageId}/toggle-visibility`, {
+        method: 'PUT',
+    });
+    return handleApiResponse(response);
+};
+
+export const uploadImage = async (file: File): Promise<{ imageUrl: string }> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const response = await fetchWithAuth('/upload-image', {
+        method: 'POST',
+        body: formData,
+    });
+    return handleApiResponse(response);
+};
+
+export const uploadMedia = async (file: File): Promise<{ imageUrl: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetchWithAuth('/upload-media', {
+        method: 'POST',
+        body: formData,
+    });
+    return handleApiResponse(response);
+};
+
+export const getAllPosts = async (): Promise<Post[]> => {
+    const response = await fetchWithAuth('/admin/posts');
+    return handleApiResponse(response);
+};
+
+export const deletePost = async (postId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/posts/${postId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
+export const adminDeletePost = async (postId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/admin/posts/${postId}`, {
         method: 'DELETE',
     });
     return handleApiResponse(response);

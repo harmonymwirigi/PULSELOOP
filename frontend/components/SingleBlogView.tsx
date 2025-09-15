@@ -64,19 +64,110 @@ const SingleBlogView: React.FC<SingleBlogViewProps> = ({ blog, navigateTo }) => 
             </article>
             
             <style>{`
+                .blog-content {
+                    line-height: 1.8;
+                }
                 .blog-content p {
-                    margin-bottom: 1.25rem;
+                    margin-bottom: 1.5rem;
+                }
+                .blog-content h1, .blog-content h2, .blog-content h3, .blog-content h4, .blog-content h5, .blog-content h6 {
+                    font-weight: 700;
+                    margin-top: 2rem;
+                    margin-bottom: 1rem;
+                    color: #1f2937;
+                }
+                .blog-content h1 { font-size: 2.25rem; }
+                .blog-content h2 { font-size: 1.875rem; }
+                .blog-content h3 { font-size: 1.5rem; }
+                .blog-content h4 { font-size: 1.25rem; }
+                .blog-content h5 { font-size: 1.125rem; }
+                .blog-content h6 { font-size: 1rem; }
+                .blog-content ul, .blog-content ol {
+                    padding-left: 2rem;
+                    margin-bottom: 1.5rem;
                 }
                 .blog-content ul {
                     list-style-type: disc;
-                    padding-left: 2rem;
-                    margin-bottom: 1.25rem;
+                }
+                .blog-content ol {
+                    list-style-type: decimal;
+                }
+                .blog-content li {
+                    margin-bottom: 0.5rem;
+                }
+                .blog-content blockquote {
+                    border-left: 4px solid #14b8a6;
+                    padding-left: 1.5rem;
+                    margin: 2rem 0;
+                    font-style: italic;
+                    color: #6b7280;
+                    background-color: #f9fafb;
+                    padding: 1rem 1.5rem;
+                    border-radius: 0.5rem;
+                }
+                .blog-content img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 0.5rem;
+                    margin: 1.5rem 0;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                }
+                .blog-content video {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 0.5rem;
+                    margin: 1.5rem 0;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                }
+                .blog-content table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 1.5rem 0;
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+                }
+                .blog-content th, .blog-content td {
+                    border: 1px solid #e5e7eb;
+                    padding: 0.75rem;
+                    text-align: left;
+                }
+                .blog-content th {
+                    background-color: #f9fafb;
+                    font-weight: 600;
+                }
+                .blog-content code {
+                    background-color: #f3f4f6;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.25rem;
+                    font-family: 'Courier New', monospace;
+                    font-size: 0.875rem;
+                }
+                .blog-content pre {
+                    background-color: #1f2937;
+                    color: #f9fafb;
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    overflow-x: auto;
+                    margin: 1.5rem 0;
+                }
+                .blog-content pre code {
+                    background-color: transparent;
+                    padding: 0;
+                    color: inherit;
                 }
                 .blog-content strong {
                     font-weight: 700;
                 }
                 .blog-content em {
                     font-style: italic;
+                }
+                .blog-content a {
+                    color: #14b8a6;
+                    text-decoration: underline;
+                }
+                .blog-content a:hover {
+                    color: #0d9488;
                 }
             `}</style>
         </div>

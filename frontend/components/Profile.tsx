@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Role } from '../types';
-import { updateAvatar, updateProfile } from '../services/mockApi';
+import { updateAvatar, updateProfile, createFeedback } from '../services/mockApi';
 import Spinner from './Spinner';
 
 const getInitials = (name: string) => {
@@ -38,6 +38,13 @@ const Profile: React.FC = () => {
     const [avatarLoading, setAvatarLoading] = useState(false);
     const [profileLoading, setProfileLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    
+    // Feedback form state
+    const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+    const [feedbackContent, setFeedbackContent] = useState('');
+    const [feedbackRating, setFeedbackRating] = useState(5);
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [feedbackSuccess, setFeedbackSuccess] = useState(false);
     
     // Form state
     const [title, setTitle] = useState(user?.title || '');
@@ -99,6 +106,28 @@ const Profile: React.FC = () => {
             setError(err.message || 'Failed to save profile.');
         } finally {
             setProfileLoading(false);
+        }
+    };
+
+    const handleSubmitFeedback = async () => {
+        if (!feedbackContent.trim()) return;
+        
+        setFeedbackLoading(true);
+        setError(null);
+        
+        try {
+            await createFeedback(feedbackContent, feedbackRating);
+            setFeedbackSuccess(true);
+            setFeedbackContent('');
+            setFeedbackRating(5);
+            setTimeout(() => {
+                setFeedbackSuccess(false);
+                setShowFeedbackForm(false);
+            }, 2000);
+        } catch (err: any) {
+            setError(err.message || 'Failed to submit feedback');
+        } finally {
+            setFeedbackLoading(false);
         }
     };
 
@@ -199,6 +228,85 @@ const Profile: React.FC = () => {
                            <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{user.bio || <span className="italic text-gray-400">No bio provided.</span>}</dd>
                         </div>
                     </dl>
+                )}
+            </div>
+
+            {/* Feedback Section */}
+            <div className="bg-white rounded-xl shadow-lg p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-gray-800">Share Your Experience</h3>
+                    <button
+                        onClick={() => setShowFeedbackForm(!showFeedbackForm)}
+                        className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                    >
+                        {showFeedbackForm ? 'Cancel' : 'Leave Feedback'}
+                    </button>
+                </div>
+                
+                <p className="text-gray-600 mb-6">
+                    Help us improve PulseLoopCare by sharing your experience. Your feedback may be featured on our landing page to help other healthcare professionals.
+                </p>
+
+                {showFeedbackForm && (
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Rating (1-5 stars)
+                            </label>
+                            <div className="flex space-x-1">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        onClick={() => setFeedbackRating(star)}
+                                        className={`text-2xl ${
+                                            star <= feedbackRating 
+                                                ? 'text-yellow-400' 
+                                                : 'text-gray-300'
+                                        } hover:text-yellow-400 transition-colors`}
+                                    >
+                                        ★
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Your Feedback
+                            </label>
+                            <textarea
+                                value={feedbackContent}
+                                onChange={(e) => setFeedbackContent(e.target.value)}
+                                placeholder="Share your experience with PulseLoopCare..."
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                                rows={4}
+                            />
+                        </div>
+                        
+                        <div className="flex space-x-4">
+                            <button
+                                onClick={handleSubmitFeedback}
+                                disabled={feedbackLoading || !feedbackContent.trim()}
+                                className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {feedbackLoading ? 'Submitting...' : 'Submit Feedback'}
+                            </button>
+                            <button
+                                onClick={() => setShowFeedbackForm(false)}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                        
+                        {feedbackSuccess && (
+                            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <p className="text-green-800 font-medium">
+                                    ✅ Thank you for your feedback! It has been submitted for review.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

@@ -70,10 +70,13 @@ export interface BroadcastMessage {
     id: string;
     title: string;
     message: string;
+    imageUrl?: string;
     isActive: boolean;
+    isVisible: boolean;
     createdBy: string;
     createdAt: string;
     updatedAt: string;
+    creator?: User;
 }
 
 export interface Post {
@@ -97,6 +100,8 @@ export enum ResourceType {
 export enum ContentStatus {
     PENDING = 'PENDING',
     APPROVED = 'APPROVED',
+    REJECTED = 'REJECTED',
+    INACTIVE = 'INACTIVE',
 }
 
 export interface Resource {
@@ -108,6 +113,7 @@ export interface Resource {
     content?: string; // For links
     file_url?: string; // For files
     status: ContentStatus;
+    rejectionReason?: string;
     created_at: string;
 }
 
@@ -118,6 +124,7 @@ export interface Blog {
     content: string;
     coverImageUrl?: string;
     status: ContentStatus;
+    rejectionReason?: string;
     created_at: string;
 }
 
@@ -133,6 +140,17 @@ export interface CreateBlogData {
     title: string;
     content: string;
     coverImage?: File;
+}
+
+export interface Feedback {
+    id: string;
+    userId: string;
+    content: string;
+    rating: number;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: string;
+    updatedAt: string;
+    author: User;
 }
 
 export type MessageSender = 'USER' | 'AI';
