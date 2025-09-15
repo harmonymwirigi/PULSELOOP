@@ -96,8 +96,8 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 <div className="lg:hidden flex flex-col space-y-3">
                     {/* Top Row: Logo and User Actions */}
                     <div className="flex justify-between items-center">
-                        <div className="bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 flex-shrink-0">
-                            <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-indigo-800" />
+                        <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30 flex-shrink-0">
+                            <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
                         </div>
                         {user && (
                             <div className="flex items-center space-x-2">
@@ -125,12 +125,12 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     <button onClick={() => {
                                         console.log('Mobile dropdown toggle clicked');
                                         setIsDropdownOpen(!isDropdownOpen);
-                                    }} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                    }} className="flex items-center space-x-2 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
                                         <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
                                             <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                                         </div>
-                                        <span className="font-bold text-indigo-900 text-sm">{user.name.split(' ')[0]}</span>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                        <span className="font-bold text-white text-sm">{user.name.split(' ')[0]}</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
                                     {isDropdownOpen && (
                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50">
@@ -154,29 +154,31 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                     {/* Mobile Search Bar */}
                     {user && (
                         <div className="w-full">
-                            <SearchBar 
-                                onResultClick={(result) => {
-                                    if (onSearchResult) {
-                                        onSearchResult(result);
-                                    }
-                                    if (result.type === 'post') {
-                                        navigateTo('FEED');
-                                    } else if (result.type === 'resource') {
-                                        navigateTo('RESOURCES');
-                                    } else if (result.type === 'blog') {
-                                        navigateTo('BLOGS');
-                                    }
-                                }}
-                                placeholder="Search posts, resources, blogs..."
-                            />
+                            <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30">
+                                <SearchBar 
+                                    onResultClick={(result) => {
+                                        if (onSearchResult) {
+                                            onSearchResult(result);
+                                        }
+                                        if (result.type === 'post') {
+                                            navigateTo('FEED');
+                                        } else if (result.type === 'resource') {
+                                            navigateTo('RESOURCES');
+                                        } else if (result.type === 'blog') {
+                                            navigateTo('BLOGS');
+                                        }
+                                    }}
+                                    placeholder="Search posts, resources, blogs..."
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
 
                 {/* Desktop Layout */}
                 <div className="hidden lg:flex justify-between items-center">
-                    <div className="bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30">
-                        <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-indigo-800" />
+                    <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
+                        <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
                     </div>
                     <nav className="flex items-center space-x-1">
                         {user ? (
@@ -201,7 +203,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     />
                                 </div>
                                 
-                                <div className="hidden md:flex items-center space-x-1 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/20">
+                                <div className="hidden md:flex items-center space-x-1 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
                                     <NavButton view="FEED">Feed</NavButton>
                                     <NavButton view="RESOURCES">Resources</NavButton>
                                     <NavButton view="BLOGS">Blogs</NavButton>
@@ -229,12 +231,12 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 
                                 {/* User Avatar Dropdown - Profile Only */}
                                 <div className="relative ml-3" ref={dropdownRef}>
-                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-white/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-white/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
-                                        <div className="w-8 h-8 border-2 border-indigo-500 rounded-full">
+                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                        <div className="w-8 h-8 border-2 border-white rounded-full">
                                             <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                                         </div>
-                                        <span className="font-bold text-indigo-900 hidden sm:block">{user.name}</span>
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                        <span className="font-bold text-white hidden sm:block">{user.name}</span>
+                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
                                     {isDropdownOpen && (
                                         <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50">
