@@ -193,21 +193,6 @@ const AppContent: React.FC = () => {
                 {/* Broadcast Message for logged-in users */}
                 <BroadcastMessageComponent />
                 
-                {/* Mobile Search Bar */}
-                <div className="lg:hidden mb-3 px-2">
-                    <SearchBar 
-                        onResultClick={(result) => {
-                            if (result.type === 'post') {
-                                navigateTo('FEED');
-                            } else if (result.type === 'resource') {
-                                navigateTo('RESOURCES');
-                            } else if (result.type === 'blog') {
-                                navigateTo('BLOGS');
-                            }
-                        }}
-                        placeholder="Search posts, resources, blogs..."
-                    />
-                </div>
                 {currentView === 'FEED' ? (
                     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-8">
                         {/* Left Sidebar */}

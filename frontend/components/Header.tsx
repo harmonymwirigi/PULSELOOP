@@ -54,23 +54,31 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
     const { user, logout } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const menuButtonRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            // Check if the click is outside both the dropdown and the menu button
+            if (dropdownRef.current && 
+                !dropdownRef.current.contains(event.target as Node) &&
+                menuButtonRef.current &&
+                !menuButtonRef.current.contains(event.target as Node)) {
                 console.log('Click outside detected, closing dropdown');
                 setIsDropdownOpen(false);
             }
         };
-        // Use a slight delay to ensure the dropdown is fully rendered
-        const timeoutId = setTimeout(() => {
-            document.addEventListener("mousedown", handleClickOutside);
-        }, 100);
         
-        return () => {
-            clearTimeout(timeoutId);
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        if (isDropdownOpen) {
+            // Add a longer delay to prevent immediate closing
+            const timeoutId = setTimeout(() => {
+                document.addEventListener("mousedown", handleClickOutside);
+            }, 300);
+            
+            return () => {
+                clearTimeout(timeoutId);
+                document.removeEventListener("mousedown", handleClickOutside);
+            };
+        }
     }, [isDropdownOpen]);
 
     const NavButton: React.FC<{ view: View; children: React.ReactNode }> = ({ view, children }) => {
@@ -91,14 +99,13 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
 
     return (
         <header className="bg-gradient-to-r from-indigo-600 via-teal-600 to-cyan-600 shadow-xl border-b border-indigo-500 sticky top-0 z-20">
-            <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-            {/* Mobile Layout - Professional Design */}
+            <div className="container mx-auto px-2 sm:px-4 py-1 sm:py-2 lg:py-4">
+            {/* Mobile Layout - Compact Design */}
             <div className="lg:hidden">
                 {/* Top Row: Logo and Menu Button */}
-                <div className="flex justify-between items-center mb-4">
-                    <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
-                        <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
-                    </div>
+                <div className="flex justify-between items-center mb-3">
+                    {/* Compact Logo - No background wrapper */}
+                    <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
                     
                     {user && (
                         <div className="flex items-center space-x-2">
@@ -107,19 +114,22 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 <NotificationBell onOpenNotifications={onOpenNotifications} />
                             )}
                             
-                            {/* Mobile Menu Button */}
+                            {/* Mobile Menu Button - Compact */}
                             <button 
-                                onClick={() => {
+                                ref={menuButtonRef}
+                                data-menu-button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                     console.log('Mobile menu toggle clicked');
                                     setIsDropdownOpen(!isDropdownOpen);
                                 }} 
-                                className="flex items-center space-x-2 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300"
+                                className="flex items-center space-x-1 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-2 py-2 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300"
                             >
-                                <div className="w-8 h-8 border-2 border-white rounded-full">
+                                <div className="w-6 h-6 border border-white rounded-full">
                                     <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                                 </div>
-                                <span className="font-bold text-white text-sm hidden sm:block">{user.name.split(' ')[0]}</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                                 </svg>
                             </button>
@@ -129,8 +139,8 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 
                 {/* Mobile Search Bar */}
                 {user && (
-                    <div className="w-full mb-4">
-                        <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
+                    <div className="w-full mb-3">
+                        <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30">
                             <SearchBar 
                                 onResultClick={(result) => {
                                     if (onSearchResult) {
@@ -152,7 +162,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 
                 {/* Mobile Menu Dropdown */}
                 {isDropdownOpen && user && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mx-4">
+                    <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 mx-4">
                         <div className="py-2">
                             {/* User Info */}
                             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -170,7 +180,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                             {/* Navigation Items */}
                             <div className="py-2">
                                 <button 
-                                    onClick={() => { 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Feed button clicked');
                                         navigateTo('FEED'); 
                                         setIsDropdownOpen(false); 
@@ -185,7 +197,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 </button>
                                 
                                 <button 
-                                    onClick={() => { 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Resources button clicked');
                                         navigateTo('RESOURCES'); 
                                         setIsDropdownOpen(false); 
@@ -199,7 +213,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 </button>
                                 
                                 <button 
-                                    onClick={() => { 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Blogs button clicked');
                                         navigateTo('BLOGS'); 
                                         setIsDropdownOpen(false); 
@@ -213,7 +229,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 </button>
                                 
                                 <button 
-                                    onClick={() => { 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Profile button clicked');
                                         navigateTo('PROFILE'); 
                                         setIsDropdownOpen(false); 
@@ -228,7 +246,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 
                                 {user.role === Role.ADMIN && (
                                     <button 
-                                        onClick={() => { 
+                                        onClick={(e) => { 
+                                            e.preventDefault();
+                                            e.stopPropagation();
                                             console.log('Mobile Admin button clicked');
                                             navigateTo('ADMIN'); 
                                             setIsDropdownOpen(false); 
@@ -247,7 +267,9 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                             {/* Logout Button */}
                             <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
                                 <button 
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Logout button clicked');
                                         logout();
                                         setIsDropdownOpen(false);
