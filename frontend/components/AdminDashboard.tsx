@@ -1082,20 +1082,20 @@ const BroadcastMessagesTable: React.FC<{
     onToggleVisibility?: (messageId: string) => void;
 }> = ({ messages, onCreateNew, onEdit, onDelete, onToggleActive, onToggleVisibility }) => {
     return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-800">Broadcast Messages</h3>
-                <button
-                    onClick={onCreateNew}
+    <div className="space-y-4">
+        <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-800">Broadcast Messages</h3>
+            <button
+                onClick={onCreateNew}
                     className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors"
-                >
-                    Create New Message
-                </button>
-            </div>
-            
-            {messages.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No broadcast messages found.</p>
-            ) : (
+            >
+                Create New Message
+            </button>
+        </div>
+        
+        {messages.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No broadcast messages found.</p>
+        ) : (
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -1110,7 +1110,7 @@ const BroadcastMessagesTable: React.FC<{
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {messages.map((message) => (
+                    {messages.map((message) => (
                                 <tr key={message.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {message.imageUrl ? (
@@ -1131,12 +1131,12 @@ const BroadcastMessagesTable: React.FC<{
                                     <td className="px-6 py-4">
                                         <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
                                             {message.title}
-                                        </div>
+                                    </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-sm text-gray-600 max-w-xs truncate">
                                             {message.message}
-                                        </div>
+                                </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -1166,18 +1166,18 @@ const BroadcastMessagesTable: React.FC<{
                                         >
                                             Edit
                                         </button>
-                                        <button
-                                            onClick={() => onToggleActive(message.id, !message.isActive)}
+                                    <button
+                                        onClick={() => onToggleActive(message.id, !message.isActive)}
                                             className={`${
-                                                message.isActive 
+                                            message.isActive
                                                     ? 'text-yellow-600 hover:text-yellow-900' 
                                                     : 'text-green-600 hover:text-green-900'
-                                            }`}
-                                        >
-                                            {message.isActive ? 'Deactivate' : 'Activate'}
-                                        </button>
+                                        }`}
+                                    >
+                                        {message.isActive ? 'Deactivate' : 'Activate'}
+                                    </button>
                                         {onToggleVisibility && (
-                                            <button
+                                    <button
                                                 onClick={() => onToggleVisibility(message.id)}
                                                 className={`${
                                                     message.isVisible 
@@ -1186,23 +1186,23 @@ const BroadcastMessagesTable: React.FC<{
                                                 }`}
                                             >
                                                 {message.isVisible ? 'Hide' : 'Show'}
-                                            </button>
+                                    </button>
                                         )}
-                                        <button
-                                            onClick={() => onDelete(message.id)}
+                                    <button
+                                        onClick={() => onDelete(message.id)}
                                             className="text-red-600 hover:text-red-900"
-                                        >
-                                            Delete
-                                        </button>
+                                    >
+                                        Delete
+                                    </button>
                                     </td>
                                 </tr>
-                            ))}
+                    ))}
                         </tbody>
                     </table>
-                </div>
-            )}
-        </div>
-    );
+            </div>
+        )}
+    </div>
+);
 };
 
 export default AdminDashboard;

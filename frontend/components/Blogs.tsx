@@ -49,6 +49,8 @@ const Blogs: React.FC<BlogsProps> = ({ navigateToBlog }) => {
     const handleCreateBlog = async (data: CreateBlogData) => {
         try {
             await createBlog(data);
+            // Show success message before hiding form
+            alert('✅ Blog post created successfully! It will be reviewed by an admin before being published.');
             setShowForm(false);
             fetchBlogs(); // Refresh list
         } catch (err: any) {
@@ -136,19 +138,30 @@ const CreateBlogForm: React.FC<{ onCreate: (data: CreateBlogData) => Promise<voi
     const [content, setContent] = useState('');
     const [coverImage, setCoverImage] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title.trim() || !content.trim()) return;
 
         setLoading(true);
-        await onCreate({ title, content, coverImage: coverImage || undefined });
-        setLoading(false);
+        try {
+            await onCreate({ title, content, coverImage: coverImage || undefined });
+            // Clear form after successful creation
+            setTitle('');
+            setContent('');
+            setCoverImage(null);
+        } catch (error) {
+            console.error('Error creating blog:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">New Blog Post</h2>
+            
             <form onSubmit={handleSubmit} className="space-y-4">
                 <input type="text" placeholder="Blog Title" value={title} onChange={e => setTitle(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500" required />
                 

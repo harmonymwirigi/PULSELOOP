@@ -20,6 +20,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [displayPreference, setDisplayPreference] = useState<DisplayNamePreference>(DisplayNamePreference.FullName);
     const [phiConfirmed, setPhiConfirmed] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,18 +67,26 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
         if (!phiConfirmed) return;
         
         setLoading(true);
-        const tagsArray = tags.split(',').map(tag => tag.trim()).filter(Boolean);
-        await onCreatePost(text, mediaFile, displayPreference, tagsArray);
-        
-        // Reset everything
-        setText('');
-        setTags('');
-        handleRemoveMedia();
-        setShowPreview(false);
-        setShowConfirmation(false);
-        setDisplayPreference(DisplayNamePreference.FullName);
-        setPhiConfirmed(false);
-        setLoading(false);
+        setSuccessMessage(null);
+        try {
+            const tagsArray = tags.split(',').map(tag => tag.trim()).filter(Boolean);
+            await onCreatePost(text, mediaFile, displayPreference, tagsArray);
+            
+            setSuccessMessage('Post created successfully!');
+            
+            // Reset everything
+            setText('');
+            setTags('');
+            handleRemoveMedia();
+            setShowPreview(false);
+            setShowConfirmation(false);
+            setDisplayPreference(DisplayNamePreference.FullName);
+            setPhiConfirmed(false);
+        } catch (error) {
+            console.error('Error creating post:', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!user || (user.role !== Role.NURSE && user.role !== Role.ADMIN)) {
@@ -104,6 +113,17 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
 
     return (
         <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+            {successMessage && (
+                <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
+                    <div className="flex items-center">
+                        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        {successMessage}
+                    </div>
+                </div>
+            )}
+            
             <div className="flex items-start space-x-4">
                 <img src={user?.avatarUrl || "/avatar.jpg"} alt={user?.name} className="w-12 h-12 rounded-full object-cover" />
                 

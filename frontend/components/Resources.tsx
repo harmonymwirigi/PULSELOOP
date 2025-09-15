@@ -34,10 +34,11 @@ const Resources: React.FC<ResourcesProps> = ({ navigateToResource }) => {
     const handleCreateResource = async (data: CreateResourceData) => {
         try {
             await createResource(data);
+            // Show success message before hiding form
+            alert('✅ Resource submitted successfully! It will be reviewed by an admin before being published.');
             setShowForm(false);
             fetchResources(); // Refresh list
-        } catch (err: any)
-{
+        } catch (err: any) {
             setError(err.message || 'Failed to create resource.');
         }
     };
@@ -133,20 +134,32 @@ const CreateResourceForm: React.FC<{ onCreate: (data: CreateResourceData) => Pro
     const [content, setContent] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        const data: CreateResourceData = { title, description, type };
-        if (type === ResourceType.LINK) data.content = content;
-        if (type === ResourceType.FILE) data.file = file || undefined;
-        await onCreate(data);
-        setLoading(false);
+        try {
+            const data: CreateResourceData = { title, description, type };
+            if (type === ResourceType.LINK) data.content = content;
+            if (type === ResourceType.FILE) data.file = file || undefined;
+            await onCreate(data);
+            // Clear form after successful creation
+            setTitle('');
+            setDescription('');
+            setContent('');
+            setFile(null);
+        } catch (error) {
+            console.error('Error creating resource:', error);
+        } finally {
+            setLoading(false);
+        }
     };
     
     return (
          <div className="bg-white p-6 rounded-lg shadow-lg mb-8">
             <h2 className="text-2xl font-semibold mb-4 text-gray-800">Share a New Resource</h2>
+            
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label htmlFor="res-title" className="block text-sm font-medium text-gray-700 mb-1">Resource Title</label>

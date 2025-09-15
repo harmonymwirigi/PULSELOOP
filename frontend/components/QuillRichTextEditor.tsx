@@ -76,17 +76,37 @@ const QuillRichTextEditor: React.FC<QuillRichTextEditorProps> = ({
             }
             
             if (type === 'image') {
+                // Insert image using Quill's native method
                 quillRef.current?.insertEmbed(range.index, 'image', fullUrl);
                 quillRef.current?.setSelection(range.index + 1);
+                
+                // Show success message
+                alert('✅ Image uploaded successfully!');
             } else {
-                // For video, we'll insert as HTML since Quill doesn't have native video embed
-                const videoHtml = `<video controls style="max-width: 100%; height: auto; margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);"><source src="${fullUrl}" type="video/${file.type.split('/')[1]}">Your browser does not support the video tag.</video>`;
-                quillRef.current?.clipboard.dangerouslyPasteHTML(range.index, videoHtml);
-                quillRef.current?.setSelection(range.index + 1);
+                // For video, try using Quill's native video embed
+                const videoType = file.type || 'video/mp4';
+                console.log('Video file type:', file.type, 'Full URL:', fullUrl);
+                
+                try {
+                    // Try Quill's native video embed first
+                    quillRef.current?.insertEmbed(range.index, 'video', fullUrl);
+                    quillRef.current?.setSelection(range.index + 1);
+                    console.log('Video inserted using Quill native method');
+                } catch (embedError) {
+                    console.log('Quill native video embed failed, trying HTML insertion:', embedError);
+                    // Fallback to HTML insertion
+                    const videoHtml = `<video controls style="max-width: 100%; height: auto; margin: 10px 0;"><source src="${fullUrl}" type="${videoType}"></video>`;
+                    quillRef.current?.clipboard.dangerouslyPasteHTML(range.index, videoHtml);
+                    quillRef.current?.setSelection(range.index + 1);
+                }
+                
+                // Show success message
+                alert('✅ Video uploaded successfully! Click play to view.');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to upload media:', error);
-            alert('Failed to upload media. Please try again.');
+            const errorMessage = error?.response?.data?.error || error?.message || 'Failed to upload media. Please try again.';
+            alert(`Upload failed: ${errorMessage}`);
         } finally {
             setIsUploading(false);
         }
@@ -160,6 +180,12 @@ const QuillRichTextEditor: React.FC<QuillRichTextEditorProps> = ({
                         handlers: {
                             image: handleImageUpload,
                             video: handleVideoUpload
+                        }
+                    },
+                    clipboard: {
+                        allowed: {
+                            tags: ['p', 'br', 'strong', 'em', 'u', 's', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img', 'video', 'source'],
+                            attributes: ['href', 'src', 'alt', 'title', 'width', 'height', 'controls', 'type']
                         }
                     },
                     keyboard: {
