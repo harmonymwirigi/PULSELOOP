@@ -7,7 +7,7 @@ export enum Role {
 }
 
 // FIX: Added a shared View type to resolve type conflicts.
-export type View = 'FEED' | 'ADMIN' | 'PROFILE' | 'RESOURCES' | 'BLOGS' | 'SINGLE_POST' | 'LOGIN' | 'SIGNUP' | 'SINGLE_RESOURCE' | 'SINGLE_BLOG' | 'INVITATIONS' | 'RESET_PASSWORD';
+export type View = 'FEED' | 'ADMIN' | 'PROFILE' | 'RESOURCES' | 'BLOGS' | 'SINGLE_POST' | 'LOGIN' | 'SIGNUP' | 'SINGLE_RESOURCE' | 'SINGLE_BLOG' | 'INVITATIONS' | 'RESET_PASSWORD' | 'USER_PROFILE';
 
 export enum DisplayNamePreference {
     FullName = 'FullName',

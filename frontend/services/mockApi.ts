@@ -4,21 +4,32 @@ import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, 
 
 // Auto-detect production environment and set appropriate API URL
 const getApiBaseUrl = () => {
+    const hostname = window.location.hostname;
+    console.log('🔍 Detecting environment - hostname:', hostname);
+    
     // Check if we're in production (hosted on pulseloopcare.com)
-    if (window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com') {
+    if (hostname === 'pulseloopcare.com' || hostname === 'www.pulseloopcare.com' || hostname.includes('pulseloopcare.com')) {
+        console.log('✅ Production environment detected');
         return 'https://pulseloopcare.com/api';
     }
+    
     // Use environment variable if set, otherwise default to localhost for development
-    return (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+    const envUrl = (import.meta as any).env?.VITE_API_URL;
+    console.log('🔧 Environment URL:', envUrl);
+    return envUrl || 'http://localhost:5000/api';
 };
 
 const getBackendBaseUrl = () => {
+    const hostname = window.location.hostname;
+    
     // Check if we're in production (hosted on pulseloopcare.com)
-    if (window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com') {
+    if (hostname === 'pulseloopcare.com' || hostname === 'www.pulseloopcare.com' || hostname.includes('pulseloopcare.com')) {
         return 'https://pulseloopcare.com';
     }
+    
     // Use environment variable if set, otherwise default to localhost for development
-    return (import.meta as any).env?.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    const envUrl = (import.meta as any).env?.VITE_API_URL;
+    return envUrl?.replace('/api', '') || 'http://localhost:5000';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -29,7 +40,9 @@ console.log('🔧 API Configuration:', {
     hostname: window.location.hostname,
     apiBaseUrl: API_BASE_URL,
     backendBaseUrl: BACKEND_BASE_URL,
-    isProduction: window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com'
+    isProduction: window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com',
+    userAgent: navigator.userAgent,
+    location: window.location.href
 });
 
 // Utility function to convert relative URLs to absolute URLs
@@ -69,7 +82,14 @@ const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
     if (!(options.body instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
     }
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log('🌐 Making API call:', {
+        endpoint,
+        fullUrl,
+        method: options.method || 'GET',
+        apiBaseUrl: API_BASE_URL
+    });
+    const response = await fetch(fullUrl, { ...options, headers });
     return response; // Return the raw response, let handleApiResponse be called separately
 };
 

@@ -27,6 +27,7 @@ import DarkModeToggle from './components/DarkModeToggle';
 import MobileNav from './components/MobileNav';
 import SearchBar from './components/SearchBar';
 import BroadcastMessageComponent from './components/BroadcastMessage';
+import UserProfilePage from './components/UserProfilePage';
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.
 
@@ -123,9 +124,13 @@ const AppContent: React.FC = () => {
             case 'SINGLE_RESOURCE': return selectedResource && <SingleResourceView resource={selectedResource} navigateTo={navigateTo} />;
             case 'SINGLE_BLOG': return selectedBlog && <SingleBlogView blog={selectedBlog} navigateTo={navigateTo} />;
             case 'RESET_PASSWORD': return <ResetPasswordPage navigateTo={navigateTo} />;
+            case 'USER_PROFILE': 
+                return user.role === Role.ADMIN 
+                    ? <UserProfilePage onNavigate={navigateTo} /> 
+                    : <p className="text-center text-red-500">Access Denied. You are not an admin.</p>;
             case 'ADMIN': 
                 return user.role === Role.ADMIN 
-                    ? <AdminDashboard /> 
+                    ? <AdminDashboard navigateTo={navigateTo} /> 
                     : <p className="text-center text-red-500">Access Denied. You are not an admin.</p>;
             default: return <Feed navigateToPost={navigateToPost} initialTagFilter={feedTagFilter} onTagFilterChange={setFeedTagFilter} />;
         }

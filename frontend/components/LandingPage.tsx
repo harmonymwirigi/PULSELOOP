@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AuthModal from './AuthModal';
 import PrivacyPolicy from './PrivacyPolicy';
 import Logo from './Logo';
-import { getPublicBlogs, getPublicFeedbacks, getActiveBroadcastMessage } from '../services/mockApi';
+import { getPublicBlogs, getPublicFeedbacks, getActiveBroadcastMessage, getAbsoluteUrl } from '../services/mockApi';
 import { Blog, Feedback, BroadcastMessage } from '../types';
 
 // Fallback testimonials in case no feedback is available
@@ -345,7 +345,7 @@ const LandingPage: React.FC = () => {
                                             {broadcastMessage.imageUrl && (
                                                 <div className="flex-shrink-0">
                                                     <img 
-                                                        src={broadcastMessage.imageUrl.startsWith('http') ? broadcastMessage.imageUrl : `http://localhost:5000${broadcastMessage.imageUrl}`} 
+                                                        src={broadcastMessage.imageUrl.startsWith('http') ? broadcastMessage.imageUrl : getAbsoluteUrl(broadcastMessage.imageUrl) || broadcastMessage.imageUrl} 
                                                         alt="Announcement" 
                                                         className="h-20 w-20 md:h-24 md:w-24 object-cover rounded-lg shadow-md"
                                                         onError={(e) => {
