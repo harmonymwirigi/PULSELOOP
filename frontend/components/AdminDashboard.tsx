@@ -324,20 +324,11 @@ const AdminDashboard: React.FC = () => {
         setLoadingProfile(true);
         setShowProfileModal({show: true, user});
         try {
-            const response = await fetch(`http://localhost:5000/api/users/${user.id}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (response.ok) {
-                const userData = await response.json();
-                setSelectedUserProfile(userData);
-            } else {
-                setError('Failed to fetch user profile details');
-            }
+            // Use the existing user data from the table instead of making a new API call
+            // since we already have all the user information from getAllUsers()
+            setSelectedUserProfile(user);
         } catch (err) {
-            setError('Failed to fetch user profile details');
+            setError('Failed to load user profile details');
         } finally {
             setLoadingProfile(false);
         }

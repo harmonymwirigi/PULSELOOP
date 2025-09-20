@@ -2,8 +2,35 @@
 
 import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const BACKEND_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+// Auto-detect production environment and set appropriate API URL
+const getApiBaseUrl = () => {
+    // Check if we're in production (hosted on pulseloopcare.com)
+    if (window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com') {
+        return 'https://pulseloopcare.com/api';
+    }
+    // Use environment variable if set, otherwise default to localhost for development
+    return (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+};
+
+const getBackendBaseUrl = () => {
+    // Check if we're in production (hosted on pulseloopcare.com)
+    if (window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com') {
+        return 'https://pulseloopcare.com';
+    }
+    // Use environment variable if set, otherwise default to localhost for development
+    return (import.meta as any).env?.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+const BACKEND_BASE_URL = getBackendBaseUrl();
+
+// Debug logging for API URL detection
+console.log('🔧 API Configuration:', {
+    hostname: window.location.hostname,
+    apiBaseUrl: API_BASE_URL,
+    backendBaseUrl: BACKEND_BASE_URL,
+    isProduction: window.location.hostname === 'pulseloopcare.com' || window.location.hostname === 'www.pulseloopcare.com'
+});
 
 // Utility function to convert relative URLs to absolute URLs
 const getAbsoluteUrl = (url: string | null | undefined): string | null => {
