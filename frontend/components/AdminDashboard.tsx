@@ -75,13 +75,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
             } else if (type === 'RESOURCE') {
                 await approveResource(id);
                 setPendingResources(prev => prev.filter(item => item.id !== id));
+                // Refresh resources data
+                const updatedResources = await getPendingResources();
+                setPendingResources(updatedResources);
             } else if (type === 'BLOG') {
                 await approveBlog(id);
                 setPendingBlogs(prev => prev.filter(item => item.id !== id));
+                // Refresh blogs data
+                const updatedBlogs = await getPendingBlogs();
+                setPendingBlogs(updatedBlogs);
             }
             setViewingItem(null); // Return to list view after approval
-        } catch (err) {
-            setError(`Failed to approve item.`);
+        } catch (err: any) {
+            console.error('Approval error:', err);
+            // Check if the error is because the item is already approved
+            if (err.message && err.message.includes('already approved')) {
+                // If already approved, just remove from pending list
+                if (type === 'RESOURCE') {
+                    setPendingResources(prev => prev.filter(item => item.id !== id));
+                } else if (type === 'BLOG') {
+                    setPendingBlogs(prev => prev.filter(item => item.id !== id));
+                }
+                setViewingItem(null);
+            } else {
+                setError(`Failed to approve item: ${err.message || 'Unknown error'}`);
+            }
         } finally {
             setApprovingId(null);
         }

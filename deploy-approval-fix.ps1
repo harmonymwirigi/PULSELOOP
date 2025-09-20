@@ -1,5 +1,5 @@
-# Quick deployment script to fix API URL issues
-Write-Host "🚀 Deploying API URL fixes..." -ForegroundColor Cyan
+# Quick deployment script to fix approval issues
+Write-Host "🚀 Deploying approval fix..." -ForegroundColor Cyan
 
 # Configuration
 $VpsUser = "root"
@@ -43,7 +43,7 @@ function Invoke-RemoteCommand {
     }
 }
 
-Log-Message "Starting API URL fix deployment..."
+Log-Message "Starting approval fix deployment..."
 
 # Stop the service
 Invoke-RemoteCommand "sudo systemctl stop pulseloop"
@@ -61,5 +61,5 @@ Log-Success "Frontend rebuilt"
 Invoke-RemoteCommand "sudo systemctl start pulseloop && sudo systemctl restart nginx"
 Log-Success "Services restarted"
 
-Log-Success "API URL fix deployment completed!"
-Write-Host "`nPlease check your website and perform a hard refresh (Ctrl+Shift+R) to see the fixes." -ForegroundColor Yellow
+Log-Success "Approval fix deployment completed!"
+Write-Host "`nPlease check your website and try approving resources again." -ForegroundColor Yellow

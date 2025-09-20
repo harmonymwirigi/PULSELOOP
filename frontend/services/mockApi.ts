@@ -290,7 +290,13 @@ export const getAllResources = async (): Promise<Resource[]> => {
 };
 
 export const approveResource = async (resourceId: string): Promise<Resource> => {
+    console.log('🔍 Approving resource with ID:', resourceId);
     const response = await fetchWithAuth(`/admin/approve-resource/${resourceId}`, { method: 'PUT' });
+    console.log('📡 Approve resource response status:', response.status);
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Approve resource error:', errorText);
+    }
     return handleApiResponse(response);
 };
 

@@ -2115,12 +2115,24 @@ def get_all_resources():
 def approve_resource(resource_id):
     # Convert UUID to string for database query
     resource_id_str = str(resource_id)
-    resource_to_approve = Resource.query.filter_by(id=resource_id_str, status='PENDING').first()
+    resource_to_approve = Resource.query.filter_by(id=resource_id_str).first()
+    
     if not resource_to_approve:
-        return jsonify({"error": "Resource not found or not in PENDING status"}), 404
+        app.logger.error(f"Resource not found: {resource_id_str}")
+        return jsonify({"error": "Resource not found"}), 404
+    
+    if resource_to_approve.status == 'APPROVED':
+        app.logger.info(f"Resource {resource_id_str} is already approved")
+        return jsonify(resource_to_approve.to_dict()), 200
+    
+    if resource_to_approve.status != 'PENDING':
+        app.logger.warning(f"Resource {resource_id_str} is not in PENDING status, current status: {resource_to_approve.status}")
+        return jsonify({"error": f"Resource is not in PENDING status, current status: {resource_to_approve.status}"}), 400
+    
     resource_to_approve.status = 'APPROVED'
     resource_to_approve.rejection_reason = None  # Clear any previous rejection reason
     db.session.commit()
+    app.logger.info(f"Resource {resource_id_str} approved successfully")
     return jsonify(resource_to_approve.to_dict()), 200
 
 @app.route('/api/admin/reject-resource/<uuid:resource_id>', methods=['PUT'])
