@@ -1,6 +1,6 @@
 // frontend/services/mockApi.ts
 
-import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback } from '../types';
+import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback, Conversation, ConversationMessage, ConversationReaction } from '../types';
 
 // Auto-detect production environment and set appropriate API URL
 const getApiBaseUrl = () => {
@@ -737,6 +737,76 @@ export const resetPassword = async (token: string, newPassword: string): Promise
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ token, newPassword }),
+    });
+    return handleApiResponse(response);
+};
+
+// --- CONVERSATION API ---
+
+export const getConversations = async (): Promise<Conversation[]> => {
+    const response = await fetchWithAuth('/conversations');
+    return handleApiResponse(response);
+};
+
+export const createConversation = async (title: string, description: string): Promise<Conversation> => {
+    const response = await fetchWithAuth('/conversations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title, description }),
+    });
+    return handleApiResponse(response);
+};
+
+export const updateConversation = async (conversationId: string, status: 'ACTIVE' | 'INACTIVE'): Promise<Conversation> => {
+    const response = await fetchWithAuth(`/conversations/${conversationId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+    });
+    return handleApiResponse(response);
+};
+
+export const deleteConversation = async (conversationId: string): Promise<void> => {
+    const response = await fetchWithAuth(`/conversations/${conversationId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
+export const getConversationMessages = async (conversationId: string): Promise<ConversationMessage[]> => {
+    const response = await fetchWithAuth(`/conversations/${conversationId}/messages`);
+    return handleApiResponse(response);
+};
+
+export const createConversationMessage = async (conversationId: string, message: string): Promise<ConversationMessage> => {
+    const response = await fetchWithAuth(`/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+    });
+    return handleApiResponse(response);
+};
+
+export const addConversationReaction = async (messageId: string, type: ReactionType): Promise<ConversationReaction> => {
+    const response = await fetchWithAuth(`/conversations/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ type }),
+    });
+    return handleApiResponse(response);
+};
+
+export const removeConversationReaction = async (messageId: string, reactionId: string): Promise<void> => {
+    const response = await fetchWithAuth(`/conversations/messages/${messageId}/reactions/${reactionId}`, {
+        method: 'DELETE',
     });
     return handleApiResponse(response);
 };

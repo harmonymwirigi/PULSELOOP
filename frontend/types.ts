@@ -174,3 +174,38 @@ export interface Invitation {
     status: InvitationStatus;
     created_at: string;
 }
+
+// --- CONVERSATION TYPES ---
+
+export interface Conversation {
+    id: string;
+    title: string;
+    description: string;
+    createdBy: string;
+    createdByName: string;
+    createdByAvatar: string;
+    status: 'ACTIVE' | 'INACTIVE';
+    createdAt: string;
+    updatedAt: string;
+    messageCount: number;
+    lastMessageAt?: string;
+}
+
+export interface ConversationMessage {
+    id: string;
+    conversationId: string;
+    userId: string;
+    userName: string;
+    userAvatar: string;
+    message: string;
+    createdAt: string;
+    reactions: ConversationReaction[];
+}
+
+export interface ConversationReaction {
+    id: string;
+    messageId: string;
+    userId: string;
+    type: ReactionType;
+    createdAt: string;
+}

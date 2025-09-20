@@ -28,6 +28,8 @@ import MobileNav from './components/MobileNav';
 import SearchBar from './components/SearchBar';
 import BroadcastMessageComponent from './components/BroadcastMessage';
 import UserProfilePage from './components/UserProfilePage';
+import Conversations from './components/Conversations';
+import MobileConversations from './components/MobileConversations';
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.
 
@@ -235,8 +237,8 @@ const AppContent: React.FC = () => {
                            </div>
                         </div>
                         
-                        {/* Right Sidebar - Trending Topics */}
-                        <aside className="hidden lg:block lg:col-span-1">
+                        {/* Right Sidebar - Trending Topics and Conversations */}
+                        <aside className="hidden lg:block lg:col-span-1 space-y-6">
                             <div className="sticky top-24 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
                                 <TrendingTopics 
                                     onTagClick={(tag) => {
@@ -246,6 +248,9 @@ const AppContent: React.FC = () => {
                                     }}
                                 />
                             </div>
+                            <div className="sticky top-24">
+                                <Conversations isAdmin={user?.role === 'ADMIN'} />
+                            </div>
                         </aside>
                     </div>
                 ) : (
@@ -253,19 +258,18 @@ const AppContent: React.FC = () => {
                         <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 lg:p-6">
                             <MainContent />
                         </div>
-                        {/* Mobile Trending Topics - Show below main content on mobile */}
-                        {currentView === 'FEED' && (
-                            <div className="mt-4 lg:hidden">
-                                <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4">
-                                    <TrendingTopics 
-                                        onTagClick={(tag) => {
-                                            setFeedTagFilter(tag);
-                                            navigateTo('FEED');
-                                        }}
-                                    />
-                                </div>
+                        {/* Mobile Trending Topics and Conversations - Show below main content on mobile */}
+                        <div className="mt-4 lg:hidden space-y-4">
+                            <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4">
+                                <TrendingTopics 
+                                    onTagClick={(tag) => {
+                                        setFeedTagFilter(tag);
+                                        navigateTo('FEED');
+                                    }}
+                                />
                             </div>
-                        )}
+                            <MobileConversations isAdmin={user?.role === 'ADMIN'} />
+                        </div>
                     </div>
                 )}
             </main>

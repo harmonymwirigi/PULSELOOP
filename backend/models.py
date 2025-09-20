@@ -346,3 +346,81 @@ class Feedback(db.Model):
             "updatedAt": self.updated_at.isoformat(),
             "author": self.author.to_dict() if self.author else None
         }
+
+# --- CONVERSATION MODELS ---
+
+class Conversation(db.Model):
+    __tablename__ = 'conversations'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    created_by = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='ACTIVE')  # ACTIVE, INACTIVE
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    
+    # Relationships
+    creator = db.relationship('User', backref='created_conversations', lazy=True)
+    messages = db.relationship('ConversationMessage', backref='conversation', lazy=True, cascade="all, delete-orphan")
+    
+    def to_dict(self):
+        message_count = len(self.messages) if self.messages else 0
+        last_message = max(self.messages, key=lambda m: m.created_at) if self.messages else None
+        
+        return {
+            "id": str(self.id),
+            "title": self.title,
+            "description": self.description,
+            "createdBy": str(self.created_by),
+            "createdByName": self.creator.name if self.creator else "Unknown",
+            "createdByAvatar": self.creator.avatar_url if self.creator else "/avatar.jpg",
+            "status": self.status,
+            "createdAt": self.created_at.isoformat(),
+            "updatedAt": self.updated_at.isoformat(),
+            "messageCount": message_count,
+            "lastMessageAt": last_message.created_at.isoformat() if last_message else None
+        }
+
+class ConversationMessage(db.Model):
+    __tablename__ = 'conversation_messages'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    conversation_id = db.Column(db.CHAR(36), db.ForeignKey('conversations.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    
+    # Relationships
+    user = db.relationship('User', backref='conversation_messages', lazy=True)
+    reactions = db.relationship('ConversationReaction', backref='message', lazy=True, cascade="all, delete-orphan")
+    
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "conversationId": str(self.conversation_id),
+            "userId": str(self.user_id),
+            "userName": self.user.name if self.user else "Unknown",
+            "userAvatar": self.user.avatar_url if self.user else "/avatar.jpg",
+            "message": self.message,
+            "createdAt": self.created_at.isoformat(),
+            "reactions": [reaction.to_dict() for reaction in self.reactions]
+        }
+
+class ConversationReaction(db.Model):
+    __tablename__ = 'conversation_reactions'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    message_id = db.Column(db.CHAR(36), db.ForeignKey('conversation_messages.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # HEART, SUPPORT, LAUGH, etc.
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    
+    # Relationships
+    user = db.relationship('User', backref='conversation_reactions', lazy=True)
+    
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "messageId": str(self.message_id),
+            "userId": str(self.user_id),
+            "type": self.type,
+            "createdAt": self.created_at.isoformat()
+        }

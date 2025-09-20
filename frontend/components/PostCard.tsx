@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Post, ReactionType, Role, Comment } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { toggleReaction as apiToggleReaction, addComment as apiAddComment, updatePost as apiUpdatePost, reactToComment as apiReactToComment, deletePost as apiDeletePost } from '../services/mockApi';
@@ -35,6 +35,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
     const [editedTags, setEditedTags] = useState(post.tags?.join(', ') || '');
     const [isSaving, setIsSaving] = useState(false);
     const [phiConfirmedOnEdit, setPhiConfirmedOnEdit] = useState(false);
+    const [showReactionDropdown, setShowReactionDropdown] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Defensive check for reactions and comments which might be undefined, null, or not an array in API responses
     const [reactions, setReactions] = useState(Array.isArray(post.reactions) ? post.reactions : []);
@@ -45,6 +47,23 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
         setComments(Array.isArray(post.comments) ? post.comments : []);
         setReactions(Array.isArray(post.reactions) ? post.reactions : []);
     }, [post.comments, post.reactions]);
+
+    // Handle click outside to close dropdown
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setShowReactionDropdown(false);
+            }
+        };
+
+        if (showReactionDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showReactionDropdown]);
 
     const handleReaction = async (type: ReactionType) => {
         if (!user || user.role === Role.PENDING) return;
@@ -297,6 +316,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
     const sadCount = countReactions(ReactionType.SAD);
     const fireCount = countReactions(ReactionType.FIRE);
     const clapCount = countReactions(ReactionType.CLAP);
+    const totalReactions = heartsCount + supportCount + laughCount + surprisedCount + angryCount + sadCount + fireCount + clapCount;
 
     const canInteract = user && user.role !== Role.PENDING;
     const isAuthor = user && user.id === post.author.id;
@@ -455,75 +475,134 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
                         {clapCount > 0 && <span className="flex items-center gap-1">👏 {clapCount}</span>}
                     </div>
                 )}
-                <div className="border-t border-gray-200 py-3">
-                    {/* Reaction buttons in a grid layout */}
-                    <div className="grid grid-cols-4 gap-2 mb-2">
-                        <button
-                            onClick={() => handleReaction(ReactionType.HEART)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-red-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.HEART) ? 'text-red-500 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">❤️</span>
-                            <span className="text-xs">Heart</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.SUPPORT)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-blue-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SUPPORT) ? 'text-blue-500 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">🤝</span>
-                            <span className="text-xs">Support</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.LAUGH)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-yellow-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.LAUGH) ? 'text-yellow-500 font-semibold bg-yellow-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">😂</span>
-                            <span className="text-xs">Laugh</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.SURPRISED)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-orange-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SURPRISED) ? 'text-orange-500 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">😮</span>
-                            <span className="text-xs">Surprised</span>
-                        </button>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                        <button
-                            onClick={() => handleReaction(ReactionType.ANGRY)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-red-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.ANGRY) ? 'text-red-600 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">😠</span>
-                            <span className="text-xs">Angry</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.SAD)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-blue-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SAD) ? 'text-blue-600 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">😢</span>
-                            <span className="text-xs">Sad</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.FIRE)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-orange-600 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.FIRE) ? 'text-orange-600 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">🔥</span>
-                            <span className="text-xs">Fire</span>
-                        </button>
-                        <button
-                            onClick={() => handleReaction(ReactionType.CLAP)}
-                            disabled={!canInteract}
-                            className={`flex flex-col items-center space-y-1 text-gray-600 hover:text-green-500 transition-colors rounded-lg p-2 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.CLAP) ? 'text-green-500 font-semibold bg-green-50' : 'hover:bg-gray-50'}`}
-                        >
-                            <span className="text-xl">👏</span>
-                            <span className="text-xs">Clap</span>
-                        </button>
+                <div className="border-t border-gray-200 py-2">
+                    {/* Compact reaction section */}
+                    <div className="flex items-center justify-between">
+                        {/* Reaction summary - show existing reactions */}
+                        <div className="flex items-center space-x-2">
+                            {heartsCount > 0 && <span className="flex items-center gap-1 text-sm">❤️ {heartsCount}</span>}
+                            {supportCount > 0 && <span className="flex items-center gap-1 text-sm">🤝 {supportCount}</span>}
+                            {laughCount > 0 && <span className="flex items-center gap-1 text-sm">😂 {laughCount}</span>}
+                            {surprisedCount > 0 && <span className="flex items-center gap-1 text-sm">😮 {surprisedCount}</span>}
+                            {angryCount > 0 && <span className="flex items-center gap-1 text-sm">😠 {angryCount}</span>}
+                            {sadCount > 0 && <span className="flex items-center gap-1 text-sm">😢 {sadCount}</span>}
+                            {fireCount > 0 && <span className="flex items-center gap-1 text-sm">🔥 {fireCount}</span>}
+                            {clapCount > 0 && <span className="flex items-center gap-1 text-sm">👏 {clapCount}</span>}
+                            {totalReactions === 0 && (
+                                <span className="text-sm text-gray-500">No reactions yet</span>
+                            )}
+                        </div>
+                        
+                        {/* Reaction button - compact */}
+                        <div className="relative" ref={dropdownRef}>
+                            <button
+                                onClick={() => setShowReactionDropdown(!showReactionDropdown)}
+                                disabled={!canInteract}
+                                className="flex items-center space-x-1 text-gray-600 hover:text-blue-500 transition-colors rounded-lg px-3 py-1.5 text-sm disabled:cursor-not-allowed disabled:text-gray-400 hover:bg-gray-50"
+                            >
+                                <span>😊</span>
+                                <span>React</span>
+                                <svg className={`w-4 h-4 transition-transform ${showReactionDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            
+                            {/* Reaction dropdown */}
+                            {showReactionDropdown && (
+                                <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10">
+                                    <div className="grid grid-cols-4 gap-4">
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.HEART);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.HEART) ? 'text-red-500 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
+                                            title="Heart"
+                                        >
+                                            <span className="text-2xl">❤️</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.SUPPORT);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-blue-500 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SUPPORT) ? 'text-blue-500 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
+                                            title="Support"
+                                        >
+                                            <span className="text-2xl">🤝</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.LAUGH);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-yellow-500 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.LAUGH) ? 'text-yellow-500 font-semibold bg-yellow-50' : 'hover:bg-gray-50'}`}
+                                            title="Laugh"
+                                        >
+                                            <span className="text-2xl">😂</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.SURPRISED);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-orange-500 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SURPRISED) ? 'text-orange-500 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
+                                            title="Surprised"
+                                        >
+                                            <span className="text-2xl">😮</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.ANGRY);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.ANGRY) ? 'text-red-600 font-semibold bg-red-50' : 'hover:bg-gray-50'}`}
+                                            title="Angry"
+                                        >
+                                            <span className="text-2xl">😠</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.SAD);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-blue-600 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.SAD) ? 'text-blue-600 font-semibold bg-blue-50' : 'hover:bg-gray-50'}`}
+                                            title="Sad"
+                                        >
+                                            <span className="text-2xl">😢</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.FIRE);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-orange-600 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.FIRE) ? 'text-orange-600 font-semibold bg-orange-50' : 'hover:bg-gray-50'}`}
+                                            title="Fire"
+                                        >
+                                            <span className="text-2xl">🔥</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                handleReaction(ReactionType.CLAP);
+                                                setShowReactionDropdown(false);
+                                            }}
+                                            disabled={!canInteract}
+                                            className={`flex items-center justify-center text-gray-600 hover:text-green-500 transition-colors rounded-lg p-3 disabled:cursor-not-allowed disabled:text-gray-400 ${userHasReacted(ReactionType.CLAP) ? 'text-green-500 font-semibold bg-green-50' : 'hover:bg-gray-50'}`}
+                                            title="Clap"
+                                        >
+                                            <span className="text-2xl">👏</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <CommentSection 

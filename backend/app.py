@@ -561,7 +561,7 @@ def send_blog_rejection_email(user_email, user_name, blog_title, rejection_reaso
     return send_email(user_email, subject, html_body, is_html=True)
 
 # --- Import your corrected models ---
-from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset, Feedback
+from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset, Feedback, Conversation, ConversationMessage, ConversationReaction
 
 # Load environment variables
 load_dotenv()
@@ -2982,6 +2982,255 @@ def health_check():
         "message": "PulseLoopCare API is running with local file storage",
         "upload_folder": UPLOAD_FOLDER
     }), 200
+
+# --- CONVERSATION ENDPOINTS ---
+
+@app.route('/api/conversations', methods=['GET'])
+@authenticated_only
+def get_conversations():
+    """Get all active conversations"""
+    try:
+        conversations = Conversation.query.filter_by(status='ACTIVE').order_by(Conversation.created_at.desc()).all()
+        return jsonify([conversation.to_dict() for conversation in conversations]), 200
+    except Exception as e:
+        app.logger.error(f"Error getting conversations: {e}")
+        return jsonify({"error": "Failed to get conversations"}), 500
+
+@app.route('/api/conversations', methods=['POST'])
+@authenticated_only
+def create_conversation():
+    """Create a new conversation (Admin only)"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'ADMIN':
+            return jsonify({"error": "Admin access required"}), 403
+        
+        data = request.get_json()
+        if not data or not data.get('title') or not data.get('description'):
+            return jsonify({"error": "Title and description are required"}), 400
+        
+        conversation = Conversation(
+            title=data['title'],
+            description=data['description'],
+            created_by=current_user_id
+        )
+        
+        db.session.add(conversation)
+        db.session.commit()
+        
+        return jsonify(conversation.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating conversation: {e}")
+        return jsonify({"error": "Failed to create conversation"}), 500
+
+@app.route('/api/conversations/<uuid:conversation_id>', methods=['PUT'])
+@authenticated_only
+def update_conversation(conversation_id):
+    """Update conversation status (Admin only)"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'ADMIN':
+            return jsonify({"error": "Admin access required"}), 403
+        
+        conversation_id_str = str(conversation_id)
+        conversation = Conversation.query.filter_by(id=conversation_id_str).first()
+        
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        data = request.get_json()
+        if data.get('status') in ['ACTIVE', 'INACTIVE']:
+            conversation.status = data['status']
+            db.session.commit()
+        
+        return jsonify(conversation.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating conversation: {e}")
+        return jsonify({"error": "Failed to update conversation"}), 500
+
+@app.route('/api/conversations/<uuid:conversation_id>', methods=['DELETE'])
+@authenticated_only
+def delete_conversation(conversation_id):
+    """Delete a conversation (Admin only)"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        user = User.query.get(current_user_id)
+        
+        if not user or user.role != 'ADMIN':
+            return jsonify({"error": "Admin access required"}), 403
+        
+        conversation_id_str = str(conversation_id)
+        conversation = Conversation.query.filter_by(id=conversation_id_str).first()
+        
+        if not conversation:
+            return jsonify({"error": "Conversation not found"}), 404
+        
+        db.session.delete(conversation)
+        db.session.commit()
+        
+        return jsonify({"message": "Conversation deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting conversation: {e}")
+        return jsonify({"error": "Failed to delete conversation"}), 500
+
+@app.route('/api/conversations/<uuid:conversation_id>/messages', methods=['GET'])
+@authenticated_only
+def get_conversation_messages(conversation_id):
+    """Get messages for a conversation"""
+    try:
+        conversation_id_str = str(conversation_id)
+        conversation = Conversation.query.filter_by(id=conversation_id_str, status='ACTIVE').first()
+        
+        if not conversation:
+            return jsonify({"error": "Conversation not found or inactive"}), 404
+        
+        messages = ConversationMessage.query.filter_by(conversation_id=conversation_id_str).order_by(ConversationMessage.created_at.asc()).all()
+        return jsonify([message.to_dict() for message in messages]), 200
+    except Exception as e:
+        app.logger.error(f"Error getting conversation messages: {e}")
+        return jsonify({"error": "Failed to get messages"}), 500
+
+@app.route('/api/conversations/<uuid:conversation_id>/messages', methods=['POST'])
+@authenticated_only
+def create_conversation_message(conversation_id):
+    """Create a new message in a conversation"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        
+        conversation_id_str = str(conversation_id)
+        conversation = Conversation.query.filter_by(id=conversation_id_str, status='ACTIVE').first()
+        
+        if not conversation:
+            return jsonify({"error": "Conversation not found or inactive"}), 404
+        
+        data = request.get_json()
+        if not data or not data.get('message'):
+            return jsonify({"error": "Message is required"}), 400
+        
+        message = ConversationMessage(
+            conversation_id=conversation_id_str,
+            user_id=current_user_id,
+            message=data['message']
+        )
+        
+        db.session.add(message)
+        db.session.commit()
+        
+        return jsonify(message.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating conversation message: {e}")
+        return jsonify({"error": "Failed to create message"}), 500
+
+@app.route('/api/conversations/messages/<uuid:message_id>/reactions', methods=['POST'])
+@authenticated_only
+def add_conversation_reaction(message_id):
+    """Add a reaction to a conversation message"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        
+        message_id_str = str(message_id)
+        message = ConversationMessage.query.filter_by(id=message_id_str).first()
+        
+        if not message:
+            return jsonify({"error": "Message not found"}), 404
+        
+        data = request.get_json()
+        if not data or not data.get('type'):
+            return jsonify({"error": "Reaction type is required"}), 400
+        
+        # Check if user already reacted with this type
+        existing_reaction = ConversationReaction.query.filter_by(
+            message_id=message_id_str,
+            user_id=current_user_id,
+            type=data['type']
+        ).first()
+        
+        if existing_reaction:
+            return jsonify({"error": "You have already reacted with this type"}), 400
+        
+        reaction = ConversationReaction(
+            message_id=message_id_str,
+            user_id=current_user_id,
+            type=data['type']
+        )
+        
+        db.session.add(reaction)
+        db.session.commit()
+        
+        return jsonify(reaction.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error adding conversation reaction: {e}")
+        return jsonify({"error": "Failed to add reaction"}), 500
+
+@app.route('/api/conversations/messages/<uuid:message_id>/reactions/<uuid:reaction_id>', methods=['DELETE'])
+@authenticated_only
+def remove_conversation_reaction(message_id, reaction_id):
+    """Remove a reaction from a conversation message"""
+    try:
+        # Get current user
+        token = request.headers.get('Authorization', '').replace('Bearer ', '')
+        if not token:
+            return jsonify({"error": "No token provided"}), 401
+        
+        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        current_user_id = data['user_id']
+        
+        reaction_id_str = str(reaction_id)
+        reaction = ConversationReaction.query.filter_by(
+            id=reaction_id_str,
+            user_id=current_user_id
+        ).first()
+        
+        if not reaction:
+            return jsonify({"error": "Reaction not found"}), 404
+        
+        db.session.delete(reaction)
+        db.session.commit()
+        
+        return jsonify({"message": "Reaction removed successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error removing conversation reaction: {e}")
+        return jsonify({"error": "Failed to remove reaction"}), 500
 
 if __name__ == '__main__':
     print("🚀 Starting PulseLoopCare with Local File Storage...")
