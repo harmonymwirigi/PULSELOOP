@@ -255,6 +255,8 @@ const QuillRichTextEditor: React.FC<QuillRichTextEditorProps> = ({
             min-height: ${height};
             font-family: 'Inter', sans-serif;
             line-height: 1.6;
+            color: #1f2937 !important;
+            background-color: #ffffff !important;
         }
         .ql-toolbar {
             border-top: 1px solid #ccc;
@@ -268,10 +270,25 @@ const QuillRichTextEditor: React.FC<QuillRichTextEditorProps> = ({
             border-right: 1px solid #ccc;
             border-radius: 0 0 8px 8px;
             font-size: 14px;
+            background-color: #ffffff !important;
+        }
+        .ql-container .ql-editor {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
         }
         .ql-editor.ql-blank::before {
             color: #9ca3af;
             font-style: normal;
+        }
+        .ql-editor p {
+            color: #1f2937 !important;
+            margin: 0.5rem 0;
+        }
+        .ql-editor span {
+            color: #1f2937 !important;
+        }
+        .ql-editor div {
+            color: #1f2937 !important;
         }
         .ql-snow .ql-picker {
             color: #374151;

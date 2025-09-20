@@ -391,6 +391,175 @@ def send_approval_notification_email(user_email, user_name):
     
     return send_email(user_email, subject, html_body, is_html=True)
 
+def send_blog_rejection_email(user_email, user_name, blog_title, rejection_reason):
+    """Send blog rejection notification email to users when their blog is rejected"""
+    subject = "📝 Blog Submission Update - PulseLoopCare"
+    
+    # HTML email body
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Blog Submission Update - PulseLoopCare</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f4f4f4;
+            }}
+            .container {{
+                background: white;
+                border-radius: 10px;
+                padding: 30px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            }}
+            .header {{
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 3px solid #ef4444;
+            }}
+            .logo {{
+                font-size: 28px;
+                font-weight: bold;
+                color: #14b8a6;
+                margin-bottom: 10px;
+            }}
+            .status-icon {{
+                font-size: 48px;
+                color: #ef4444;
+                margin-bottom: 20px;
+            }}
+            .content {{
+                margin-bottom: 30px;
+            }}
+            .blog-details {{
+                background: #f8fafc;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+                border-left: 4px solid #14b8a6;
+            }}
+            .rejection-reason {{
+                background: #fef2f2;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+                border-left: 4px solid #ef4444;
+            }}
+            .cta-button {{
+                display: inline-block;
+                background: linear-gradient(135deg, #14b8a6, #0d9488);
+                color: white;
+                padding: 15px 30px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px 0;
+                transition: transform 0.2s;
+            }}
+            .cta-button:hover {{
+                transform: translateY(-2px);
+            }}
+            .tips {{
+                background: #f0f9ff;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+                border-left: 4px solid #0ea5e9;
+            }}
+            .tip-item {{
+                margin: 10px 0;
+                padding-left: 20px;
+                position: relative;
+            }}
+            .tip-item:before {{
+                content: "💡";
+                position: absolute;
+                left: 0;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #e5e7eb;
+                color: #6b7280;
+                font-size: 14px;
+            }}
+            .contact-info {{
+                background: #f3f4f6;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="logo">PulseLoopCare</div>
+                <div class="status-icon">📝</div>
+                <h1>Blog Submission Update</h1>
+            </div>
+            
+            <div class="content">
+                <p>Dear <strong>{user_name}</strong>,</p>
+                
+                <p>Thank you for your recent blog submission to PulseLoopCare. After careful review, we need to inform you that your blog post requires some modifications before it can be published.</p>
+                
+                <div class="blog-details">
+                    <h3>📄 Blog Details</h3>
+                    <p><strong>Title:</strong> {blog_title}</p>
+                    <p><strong>Status:</strong> <span style="color: #ef4444; font-weight: bold;">Requires Revision</span></p>
+                </div>
+                
+                <div class="rejection-reason">
+                    <h3>📋 Feedback from Admin</h3>
+                    <p><strong>Reason for Revision:</strong></p>
+                    <p style="background: white; padding: 15px; border-radius: 5px; margin-top: 10px; font-style: italic;">
+                        {rejection_reason if rejection_reason else "Please review the content guidelines and ensure your blog post meets our quality standards."}
+                    </p>
+                </div>
+                
+                <div class="tips">
+                    <h3>💡 Tips for Resubmission</h3>
+                    <div class="tip-item">Ensure your content is original and provides value to healthcare professionals</div>
+                    <div class="tip-item">Check that your blog follows our community guidelines</div>
+                    <div class="tip-item">Include relevant medical references and citations where appropriate</div>
+                    <div class="tip-item">Make sure the content is well-structured and easy to read</div>
+                    <div class="tip-item">Verify that all claims are accurate and evidence-based</div>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="https://pulseloopcare.com" class="cta-button">Resubmit Your Blog</a>
+                </div>
+                
+                <p>We encourage you to revise your blog post based on the feedback provided and resubmit it for review. Our goal is to maintain high-quality content that benefits our healthcare community.</p>
+                
+                <div class="contact-info">
+                    <p><strong>Questions about the feedback?</strong></p>
+                    <p><strong>Email:</strong> admin@pulseloopcare.com</p>
+                </div>
+            </div>
+            
+            <div class="footer">
+                <p>Thank you for contributing to our healthcare community!</p>
+                <p>© 2024 PulseLoopCare. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return send_email(user_email, subject, html_body, is_html=True)
+
 # --- Import your corrected models ---
 from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset, Feedback
 
@@ -2224,6 +2393,20 @@ def reject_blog(blog_id):
     blog_to_reject.status = 'REJECTED'
     blog_to_reject.rejection_reason = rejection_reason
     db.session.commit()
+    
+    # Send rejection email notification to the blog author
+    try:
+        send_blog_rejection_email(
+            user_email=blog_to_reject.author.email,
+            user_name=blog_to_reject.author.name,
+            blog_title=blog_to_reject.title,
+            rejection_reason=rejection_reason
+        )
+        app.logger.info(f"Blog rejection email sent to {blog_to_reject.author.email} for blog: {blog_to_reject.title}")
+    except Exception as email_error:
+        app.logger.error(f"Failed to send blog rejection email to {blog_to_reject.author.email}: {email_error}")
+        # Don't fail the rejection if email fails, just log the error
+    
     return jsonify(blog_to_reject.to_dict()), 200
 
 @app.route('/api/admin/inactivate-blog/<uuid:blog_id>', methods=['PUT'])

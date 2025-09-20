@@ -27,6 +27,9 @@ const AdminDashboard: React.FC = () => {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState<{show: boolean, type: 'resource' | 'blog', item: Resource | Blog | null}>({show: false, type: 'resource', item: null});
     const [rejectionReason, setRejectionReason] = useState('');
+    const [showProfileModal, setShowProfileModal] = useState<{show: boolean, user: User | null}>({show: false, user: null});
+    const [selectedUserProfile, setSelectedUserProfile] = useState<User | null>(null);
+    const [loadingProfile, setLoadingProfile] = useState(false);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -317,6 +320,29 @@ const AdminDashboard: React.FC = () => {
         setImagePreview(null);
     };
 
+    const handleViewProfile = async (user: User) => {
+        setLoadingProfile(true);
+        setShowProfileModal({show: true, user});
+        try {
+            const response = await fetch(`http://localhost:5000/api/users/${user.id}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (response.ok) {
+                const userData = await response.json();
+                setSelectedUserProfile(userData);
+            } else {
+                setError('Failed to fetch user profile details');
+            }
+        } catch (err) {
+            setError('Failed to fetch user profile details');
+        } finally {
+            setLoadingProfile(false);
+        }
+    };
+
     const populateBroadcastForm = (message: BroadcastMessage) => {
         setBroadcastForm({
             title: message.title,
@@ -343,6 +369,7 @@ const AdminDashboard: React.FC = () => {
                         onUpdateRole={handleUpdateUserRole}
                         onDeleteUser={handleDeleteUser}
                         onShowConfirmModal={setShowConfirmModal}
+                        onViewProfile={handleViewProfile}
                         approvingId={approvingId}
                     />
                 ) : <p className="text-gray-500 text-center py-8">No users found.</p>;
@@ -595,6 +622,132 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* User Profile Modal */}
+            {showProfileModal.show && showProfileModal.user && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-gray-200">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+                                <h3 className="text-2xl font-bold text-gray-900">User Profile</h3>
+                                <button 
+                                    onClick={() => {
+                                        setShowProfileModal({show: false, user: null});
+                                        setSelectedUserProfile(null);
+                                    }}
+                                    className="text-gray-500 hover:text-gray-700 text-3xl font-bold bg-gray-100 hover:bg-gray-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            
+                            {loadingProfile ? (
+                                <div className="flex justify-center py-8">
+                                    <Spinner size="lg" color="teal" />
+                                </div>
+                            ) : selectedUserProfile ? (
+                                <div className="space-y-6">
+                                    {/* Profile Header */}
+                                    <div className="flex items-start space-x-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                                        <img 
+                                            src={selectedUserProfile.avatarUrl || "/avatar.jpg"} 
+                                            alt={selectedUserProfile.name} 
+                                            className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                                        />
+                                        <div className="flex-1">
+                                            <h4 className="text-2xl font-bold text-gray-900 mb-2">{selectedUserProfile.name}</h4>
+                                            <p className="text-lg text-gray-700 font-medium mb-3">{selectedUserProfile.email}</p>
+                                            <div className="mt-2">
+                                                <StatusBadge text={selectedUserProfile.role} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Profile Details */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-white border-2 border-gray-200 p-6 rounded-lg shadow-sm">
+                                            <h5 className="font-bold text-gray-900 mb-4 text-lg border-b border-gray-300 pb-2">Professional Information</h5>
+                                            <div className="space-y-3 text-sm">
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                                    <span className="font-semibold text-gray-800">Title:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.title || 'Not specified'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                                    <span className="font-semibold text-gray-800">Department:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.department || 'Not specified'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                                    <span className="font-semibold text-gray-800">State:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.state || 'Not specified'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2">
+                                                    <span className="font-semibold text-gray-800">Expertise Level:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.expertiseLevel || 'Not specified'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white border-2 border-gray-200 p-6 rounded-lg shadow-sm">
+                                            <h5 className="font-bold text-gray-900 mb-4 text-lg border-b border-gray-300 pb-2">Account Information</h5>
+                                            <div className="space-y-3 text-sm">
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                                    <span className="font-semibold text-gray-800">User ID:</span> 
+                                                    <span className="text-gray-600 font-mono text-xs">{selectedUserProfile.id}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                                                    <span className="font-semibold text-gray-800">Profile Completion:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.profileCompletionPercentage || 0}%</span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-2">
+                                                    <span className="font-semibold text-gray-800">Discussion Score:</span> 
+                                                    <span className="text-gray-700 font-medium">{selectedUserProfile.discussionContributionScore || 0}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Bio Section */}
+                                    {selectedUserProfile.bio && (
+                                        <div className="bg-white border-2 border-gray-200 p-6 rounded-lg shadow-sm">
+                                            <h5 className="font-bold text-gray-900 mb-4 text-lg border-b border-gray-300 pb-2">Bio</h5>
+                                            <p className="text-sm text-gray-800 leading-relaxed font-medium">{selectedUserProfile.bio}</p>
+                                        </div>
+                                    )}
+
+                                    {/* Expertise Areas */}
+                                    {selectedUserProfile.expertiseAreas && selectedUserProfile.expertiseAreas.length > 0 && (
+                                        <div className="bg-white border-2 border-gray-200 p-6 rounded-lg shadow-sm">
+                                            <h5 className="font-bold text-gray-900 mb-4 text-lg border-b border-gray-300 pb-2">Expertise Areas</h5>
+                                            <div className="flex flex-wrap gap-3">
+                                                {selectedUserProfile.expertiseAreas.map((area: string, index: number) => (
+                                                    <span key={index} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-md">
+                                                        {area}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Invitation Info */}
+                                    {selectedUserProfile.invitedByUser && (
+                                        <div className="bg-white border-2 border-gray-200 p-6 rounded-lg shadow-sm">
+                                            <h5 className="font-bold text-gray-900 mb-4 text-lg border-b border-gray-300 pb-2">Invited By</h5>
+                                            <p className="text-sm text-gray-800 font-medium">{selectedUserProfile.invitedByUser.name}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6">
+                                        <p className="text-red-700 font-semibold text-lg">Failed to load user profile details</p>
+                                        <p className="text-red-600 text-sm mt-2">Please try again or contact support if the issue persists.</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -635,8 +788,9 @@ const AllUsersTable: React.FC<{
     onUpdateRole: (userId: string, role: string) => void,
     onDeleteUser: (userId: string) => void,
     onShowConfirmModal: (modal: {show: boolean, type: 'delete' | 'role', user: User | null, newRole?: string}) => void,
+    onViewProfile: (user: User) => void,
     approvingId: string | null
-}> = ({ users, onUpdateRole, onDeleteUser, onShowConfirmModal, approvingId }) => (
+}> = ({ users, onUpdateRole, onDeleteUser, onShowConfirmModal, onViewProfile, approvingId }) => (
     <TableWrapper headers={["User", "Email", "Role", "Title", "Actions"]}>
         {users.map(user => (
             <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
@@ -654,6 +808,10 @@ const AllUsersTable: React.FC<{
                 <td className="py-3 px-4">{user.title || 'No title'}</td>
                 <td className="py-3 px-4">
                     <div className="flex space-x-2">
+                        <ViewProfileButton 
+                            user={user} 
+                            onViewProfile={onViewProfile}
+                        />
                         <RoleSelectButton 
                             user={user} 
                             onShowConfirmModal={onShowConfirmModal}
@@ -861,6 +1019,18 @@ const RoleSelectButton: React.FC<{
         </select>
     );
 };
+
+const ViewProfileButton: React.FC<{
+    user: User,
+    onViewProfile: (user: User) => void
+}> = ({ user, onViewProfile }) => (
+    <button 
+        onClick={() => onViewProfile(user)}
+        className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors text-xs font-semibold"
+    >
+        View Profile
+    </button>
+);
 
 const DeleteButton: React.FC<{
     user: User,

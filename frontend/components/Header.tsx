@@ -55,28 +55,46 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
+    const isButtonClicking = useRef(false);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
+            // Skip if a button is being clicked
+            if (isButtonClicking.current) {
+                console.log('Button click in progress, ignoring click outside');
+                return;
+            }
+            
             // Check if the click is outside both the dropdown and the menu button
-            if (dropdownRef.current && 
-                !dropdownRef.current.contains(event.target as Node) &&
-                menuButtonRef.current &&
-                !menuButtonRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            const isInsideDropdown = dropdownRef.current && dropdownRef.current.contains(target);
+            const isInsideMenuButton = menuButtonRef.current && menuButtonRef.current.contains(target);
+            
+            console.log('Click detected:', {
+                isInsideDropdown,
+                isInsideMenuButton,
+                target: target.nodeName,
+                dropdownRef: !!dropdownRef.current,
+                menuButtonRef: !!menuButtonRef.current
+            });
+            
+            if (!isInsideDropdown && !isInsideMenuButton) {
                 console.log('Click outside detected, closing dropdown');
                 setIsDropdownOpen(false);
+            } else {
+                console.log('Click inside dropdown or menu button, keeping it open');
             }
         };
         
         if (isDropdownOpen) {
-            // Add a longer delay to prevent immediate closing
+            // Add a longer delay to prevent immediate closing but allow button clicks
             const timeoutId = setTimeout(() => {
-                document.addEventListener("mousedown", handleClickOutside);
+                document.addEventListener("click", handleClickOutside);
             }, 300);
             
             return () => {
                 clearTimeout(timeoutId);
-                document.removeEventListener("mousedown", handleClickOutside);
+                document.removeEventListener("click", handleClickOutside);
             };
         }
     }, [isDropdownOpen]);
@@ -89,7 +107,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
                     isActive
                         ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg transform scale-105 border border-white/30'
-                        : 'text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-100 hover:to-cyan-100 hover:text-indigo-900 hover:shadow-md hover:scale-102'
+                        : 'text-white hover:bg-gradient-to-r hover:from-indigo-100/20 hover:to-cyan-100/20 hover:text-white hover:shadow-md hover:scale-102'
                 }`}
             >
                 {children}
@@ -103,12 +121,12 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
             {/* Mobile Layout - Compact Design */}
             <div className="lg:hidden">
                 {/* Top Row: Logo and Menu Button */}
-                <div className="flex justify-between items-center mb-3">
-                    {/* Compact Logo - No background wrapper */}
+                <div className="flex justify-between items-center mb-2">
+                    {/* Compact Logo with text */}
                     <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
                     
                     {user && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-1 sm:space-x-2">
                             {/* Notification Bell */}
                             {onOpenNotifications && (
                                 <NotificationBell onOpenNotifications={onOpenNotifications} />
@@ -139,7 +157,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                 
                 {/* Mobile Search Bar */}
                 {user && (
-                    <div className="w-full mb-3">
+                    <div className="w-full mb-2">
                         <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30">
                             <SearchBar 
                                 onResultClick={(result) => {
@@ -343,7 +361,11 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 
                                 {/* User Avatar Dropdown - Profile Only */}
                                 <div className="relative ml-3" ref={dropdownRef}>
-                                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300 cursor-pointer">
+                                    <button 
+                                        ref={menuButtonRef}
+                                        onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
+                                        className="flex items-center space-x-2 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                                    >
                                         <div className="w-8 h-8 border-2 border-white rounded-full">
                                             <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                                         </div>
@@ -351,14 +373,29 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                                     </button>
                                     {isDropdownOpen && (
-                                        <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50">
+                                        <div 
+                                            className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-2xl border border-indigo-200 py-2 z-50"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
                                             <button 
-                                                onClick={() => { 
+                                                onClick={(e) => { 
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
                                                     console.log('Desktop Profile button clicked');
+                                                    
+                                                    // Set flag to prevent click outside handler
+                                                    isButtonClicking.current = true;
+                                                    
+                                                    // Navigate immediately
                                                     navigateTo('PROFILE'); 
-                                                    setIsDropdownOpen(false); 
+                                                    setIsDropdownOpen(false);
+                                                    
+                                                    // Reset flag after a short delay
+                                                    setTimeout(() => {
+                                                        isButtonClicking.current = false;
+                                                    }, 100);
                                                 }} 
-                                                className="w-full text-left px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 transition-all duration-200 font-medium"
+                                                className="w-full text-left px-4 py-3 text-sm text-indigo-800 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-cyan-50 hover:text-indigo-900 transition-all duration-200 font-medium cursor-pointer"
                                             >
                                                 My Profile
                                             </button>

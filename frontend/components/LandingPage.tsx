@@ -192,9 +192,9 @@ const LandingPage: React.FC = () => {
             {isModalOpen && <AuthModal initialMode={modalMode} onClose={() => setIsModalOpen(false)} invitationToken={invitationToken} onViewPolicy={viewPolicy} />}
             
             {/* Header */}
-            <header className="absolute top-0 left-0 w-full z-10 py-6 px-4 sm:px-8">
+            <header className="absolute top-0 left-0 w-full z-10 py-3 sm:py-6 px-4 sm:px-8">
                 <div className="container mx-auto flex justify-center items-center">
-                    <div className="bg-white/95 backdrop-blur-md rounded-2xl px-6 py-4 shadow-xl border border-white/20">
+                    <div className="bg-white/95 backdrop-blur-md rounded-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-xl border border-white/20">
                         <Logo textColorClassName="text-teal-600" />
                     </div>
                 </div>
@@ -202,25 +202,30 @@ const LandingPage: React.FC = () => {
 
             <main>
                 {/* Hero Section */}
-                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-40 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
+                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-48 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
                     <div className="relative z-10 px-4 max-w-6xl mx-auto">
                         
                         {/* Hero Message Carousel */}
-                        <div className="relative max-w-6xl mx-auto mb-10">
-                            <div className="overflow-hidden relative" style={{ height: '16rem' }}>
+                        <div className="relative max-w-6xl mx-auto mb-8">
+                            <div className="overflow-hidden relative" style={{ height: '18rem' }}>
                                 {heroMessages.map((message, index) => (
                                     <div 
                                         key={index}
-                                        className="absolute w-full h-full transition-transform duration-500 ease-in-out flex flex-col justify-center"
+                                        className="absolute w-full h-full transition-transform duration-500 ease-in-out flex flex-col justify-center items-center"
                                         style={{ transform: `translateX(${(index - currentHeroMessage) * 100}%)` }}
                                     >
-                                        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-4 drop-shadow-lg text-center">
-                                            {message.title}
-                                        </h1>
-                                        <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-4xl mx-auto drop-shadow-md leading-relaxed text-center">
-                                            {message.subtitle}
-                                        </p>
+                                        {/* H1 Title with proper mobile spacing */}
+                                        <div className="w-full max-w-5xl mx-auto px-4">
+                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-4 drop-shadow-2xl text-center">
+                                                {message.title}
+                                            </h1>
+                                            {message.subtitle && (
+                                                <p className="text-base sm:text-lg md:text-xl text-gray-100 max-w-3xl mx-auto drop-shadow-lg leading-relaxed text-center">
+                                                    {message.subtitle}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -276,15 +281,21 @@ const LandingPage: React.FC = () => {
                         </div>
 
                         {/* Call to Action Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-                            <button onClick={() => openModal('signup')} className="group px-10 py-5 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full hover:from-teal-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 text-lg shadow-2xl hover:shadow-3xl flex items-center min-w-[200px] justify-center">
-                                <svg className="w-6 h-6 mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-12 px-4">
+                            <button onClick={() => setShowBlogs(true)} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-full hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                                </svg>
+                                Blogs
+                            </button>
+                            <button onClick={() => openModal('signup')} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full hover:from-teal-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                 </svg>
                                 Join the Community
                             </button>
-                            <button onClick={() => openModal('login')} className="px-10 py-5 bg-white/15 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/25 transition-all duration-300 text-lg border-2 border-white/30 hover:border-white/50 flex items-center min-w-[200px] justify-center">
-                                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button onClick={() => openModal('login')} className="w-full sm:w-auto px-8 py-4 bg-white/15 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/25 transition-all duration-300 text-base sm:text-lg border-2 border-white/30 hover:border-white/50 flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                 </svg>
                                 Sign In
@@ -394,9 +405,9 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
-                
-                {/* Features Section */}
-                <section className="py-24 bg-white">
+
+                {/* Desktop Features Section */}
+                <section className="hidden sm:block py-24 bg-white">
                     <div className="container mx-auto px-4 text-center">
                         <div className="mb-16">
                             <h3 className="text-4xl font-bold text-gray-800 mb-6">The Future of Medical Teamwork</h3>
@@ -424,7 +435,7 @@ const LandingPage: React.FC = () => {
                 
 
                 {/* Testimonials Section */}
-                <section className="py-24 bg-white">
+                <section className="py-24 bg-gray-50">
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
                             <h3 className="text-4xl font-bold text-gray-800 mb-6">Hear From Our Innovators</h3>
@@ -518,6 +529,53 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
                 </section>
+
+                {/* Mobile Features Section - Moved to bottom */}
+                <section className="block sm:hidden py-16 bg-white">
+                    <div className="container mx-auto px-4">
+                        <div className="text-center mb-12">
+                            <h3 className="text-3xl font-bold text-gray-800 mb-4">Key Features</h3>
+                            <p className="text-gray-600 text-base">Essential tools for healthcare professionals</p>
+                        </div>
+                        <div className="space-y-6">
+                            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-100">
+                                <div className="flex items-center mb-4">
+                                    <div className="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l4 4m0 0l4 4m-4-4v12m-4-4l-4 4m0 0l-4 4m4-4V3" />
+                                        </svg>
+                                    </div>
+                                    <h4 className="text-xl font-bold text-gray-800">AI-Powered Insights</h4>
+                                </div>
+                                <p className="text-gray-600 text-sm leading-relaxed">Leverage cutting-edge AI to analyze case data and receive diagnostic suggestions.</p>
+                            </div>
+                            
+                            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-100">
+                                <div className="flex items-center mb-4">
+                                    <div className="w-12 h-12 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center mr-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                    </div>
+                                    <h4 className="text-xl font-bold text-gray-800">Secure Network</h4>
+                                </div>
+                                <p className="text-gray-600 text-sm leading-relaxed">Connect with verified healthcare professionals in a secure environment.</p>
+                            </div>
+                            
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
+                                <div className="flex items-center mb-4">
+                                    <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9M7 16h6M7 12h6M7 8h6" />
+                                        </svg>
+                                    </div>
+                                    <h4 className="text-xl font-bold text-gray-800">Resource Hub</h4>
+                                </div>
+                                <p className="text-gray-600 text-sm leading-relaxed">Access articles, research papers, and best-practice guidelines.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </main>
 
             {/* Footer */}
@@ -528,12 +586,6 @@ const LandingPage: React.FC = () => {
                         <div className="text-center md:text-left">
                             <h3 className="text-lg font-semibold text-white mb-4">Contact Us</h3>
                             <div className="space-y-2 text-gray-300">
-                                <div className="flex items-center justify-center md:justify-start">
-                                    <svg className="w-5 h-5 mr-2 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    <span>+1 (832) 334-1801</span>
-                                </div>
                                 <div className="flex items-center justify-center md:justify-start">
                                     <svg className="w-5 h-5 mr-2 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -653,6 +705,12 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
                         </div>
                         <div className="flex space-x-4">
                             <button 
+                                onClick={() => window.location.href = '/#blogs'}
+                                className="px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium"
+                            >
+                                Blogs
+                            </button>
+                            <button 
                                 onClick={() => window.location.href = '/#signup'}
                                 className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
                             >
@@ -763,6 +821,12 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void }> = ({ bl
                             <Logo textColorClassName="text-teal-600" />
                         </div>
                         <div className="flex space-x-4">
+                            <button 
+                                onClick={() => window.location.href = '/#blogs'}
+                                className="px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium"
+                            >
+                                Blogs
+                            </button>
                             <button 
                                 onClick={() => window.location.href = '/#signup'}
                                 className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
