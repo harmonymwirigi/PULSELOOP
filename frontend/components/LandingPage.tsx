@@ -182,9 +182,9 @@ const LandingPage: React.FC = () => {
 
     if (showBlogs) {
         if (selectedBlog) {
-            return <PublicSingleBlogView blog={selectedBlog} onBack={handleBackToBlogs} />;
+            return <PublicSingleBlogView blog={selectedBlog} onBack={handleBackToBlogs} onOpenModal={openModal} onShowBlogs={handleShowBlogs} />;
         }
-        return <PublicBlogsView blogs={blogs} loading={blogsLoading} onBlogClick={handleBlogClick} onBack={handleBackToLanding} />;
+        return <PublicBlogsView blogs={blogs} loading={blogsLoading} onBlogClick={handleBlogClick} onBack={handleBackToLanding} onOpenModal={openModal} onShowBlogs={handleShowBlogs} />;
     }
 
     return (
@@ -217,7 +217,7 @@ const LandingPage: React.FC = () => {
                                     >
                                         {/* H1 Title with proper mobile spacing */}
                                         <div className="w-full max-w-5xl mx-auto px-4">
-                                            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold text-white leading-tight mb-4 drop-shadow-2xl text-center">
+                                            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4 drop-shadow-2xl text-center">
                                                 {message.title}
                                             </h1>
                                             {message.subtitle && (
@@ -293,12 +293,6 @@ const LandingPage: React.FC = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                 </svg>
                                 Join the Community
-                            </button>
-                            <button onClick={() => openModal('login')} className="w-full sm:w-auto px-8 py-4 bg-white/15 backdrop-blur-md text-white font-bold rounded-full hover:bg-white/25 transition-all duration-300 text-base sm:text-lg border-2 border-white/30 hover:border-white/50 flex items-center justify-center">
-                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                </svg>
-                                Sign In
                             </button>
                         </div>
                         
@@ -523,9 +517,8 @@ const LandingPage: React.FC = () => {
                      <div className="container mx-auto px-4 py-24 text-center relative z-10">
                         <h3 className="text-5xl font-bold mb-6">Ready to Transform Patient Care?</h3>
                         <p className="text-teal-100 text-xl max-w-3xl mx-auto mb-10 leading-relaxed">Join a growing community of forward-thinking medical professionals today and be part of the future of healthcare collaboration.</p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                        <div className="flex justify-center items-center">
                             <button onClick={() => openModal('signup')} className="px-10 py-4 bg-white text-teal-600 font-bold rounded-full hover:bg-gray-100 transition-all duration-300 hover:scale-105 text-lg shadow-lg hover:shadow-xl">Sign Up For Free</button>
-                            <button onClick={() => openModal('login')} className="px-10 py-4 bg-transparent border-2 border-white text-white font-bold rounded-full hover:bg-white hover:text-teal-600 transition-all duration-300 text-lg">Sign In</button>
                         </div>
                     </div>
                 </section>
@@ -669,7 +662,7 @@ const TestimonialCard: React.FC<{quote: string, name: string, role: string, avat
 );
 
 // Public Blog Views
-const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: (blog: Blog) => void, onBack: () => void }> = ({ blogs, loading, onBlogClick, onBack }) => {
+const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: (blog: Blog) => void, onBack: () => void, onOpenModal: (mode: 'login' | 'signup', token?: string | null) => void, onShowBlogs: () => void }> = ({ blogs, loading, onBlogClick, onBack, onOpenModal, onShowBlogs }) => {
     const stripHtml = (html: string) => {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         return doc.body.textContent || "";
@@ -691,7 +684,7 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
             {/* Header */}
             <header className="bg-white shadow-sm border-b">
                 <div className="container mx-auto px-4 py-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center">
                             <button 
                                 onClick={onBack}
@@ -703,24 +696,18 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
                             </button>
                             <Logo textColorClassName="text-teal-600" />
                         </div>
-                        <div className="flex space-x-4">
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                             <button 
-                                onClick={() => window.location.href = '/#blogs'}
-                                className="px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium"
+                                onClick={onShowBlogs}
+                                className="px-4 sm:px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Blogs
                             </button>
                             <button 
-                                onClick={() => window.location.href = '/#signup'}
-                                className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
+                                onClick={() => onOpenModal('signup')}
+                                className="px-4 sm:px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Join Community
-                            </button>
-                            <button 
-                                onClick={() => window.location.href = '/#login'}
-                                className="px-6 py-2 border border-teal-500 text-teal-500 rounded-full hover:bg-teal-50 transition-colors font-medium"
-                            >
-                                Sign In
                             </button>
                         </div>
                     </div>
@@ -791,7 +778,7 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
     );
 };
 
-const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void }> = ({ blog, onBack }) => {
+const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void, onOpenModal: (mode: 'login' | 'signup', token?: string | null) => void, onShowBlogs: () => void }> = ({ blog, onBack, onOpenModal, onShowBlogs }) => {
     const formatDate = (dateString: string | undefined | null): string => {
         if (!dateString) return 'Date not available';
         try {
@@ -808,7 +795,7 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void }> = ({ bl
             {/* Header */}
             <header className="bg-white shadow-sm border-b">
                 <div className="container mx-auto px-4 py-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center">
                             <button 
                                 onClick={onBack}
@@ -820,24 +807,18 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void }> = ({ bl
                             </button>
                             <Logo textColorClassName="text-teal-600" />
                         </div>
-                        <div className="flex space-x-4">
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                             <button 
-                                onClick={() => window.location.href = '/#blogs'}
-                                className="px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium"
+                                onClick={onShowBlogs}
+                                className="px-4 sm:px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Blogs
                             </button>
                             <button 
-                                onClick={() => window.location.href = '/#signup'}
-                                className="px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium"
+                                onClick={() => onOpenModal('signup')}
+                                className="px-4 sm:px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Join Community
-                            </button>
-                            <button 
-                                onClick={() => window.location.href = '/#login'}
-                                className="px-6 py-2 border border-teal-500 text-teal-500 rounded-full hover:bg-teal-50 transition-colors font-medium"
-                            >
-                                Sign In
                             </button>
                         </div>
                     </div>
