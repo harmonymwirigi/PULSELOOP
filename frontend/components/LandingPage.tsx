@@ -111,9 +111,7 @@ const LandingPage: React.FC = () => {
 
     const handleShowBlogs = () => {
         setShowBlogs(true);
-        if (blogs.length === 0) {
-            fetchBlogs();
-        }
+        fetchBlogs();
     };
 
     const handleBlogClick = (blog: Blog) => {
@@ -202,7 +200,7 @@ const LandingPage: React.FC = () => {
 
             <main>
                 {/* Hero Section */}
-                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-48 sm:pt-0" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
+                <section className="relative h-screen flex items-center justify-center text-center bg-cover bg-center pt-48 sm:pt-32 md:pt-40 lg:pt-48" style={{ backgroundImage: "url('/firstlanding.jpg')" }}>
                     <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
                     <div className="relative z-10 px-4 max-w-6xl mx-auto">
                         
@@ -217,7 +215,7 @@ const LandingPage: React.FC = () => {
                                     >
                                         {/* H1 Title with proper mobile spacing */}
                                         <div className="w-full max-w-5xl mx-auto px-4">
-                                            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-4 drop-shadow-2xl text-center">
+                                            <h1 className="text-xl sm:text-2xl md:text-2xl lg:text-3xl xl:text-4xl font-extrabold text-white leading-tight mb-4 drop-shadow-2xl text-center">
                                                 {message.title}
                                             </h1>
                                             {message.subtitle && (
@@ -694,7 +692,9 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
                             </button>
-                            <Logo textColorClassName="text-teal-600" />
+                            <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+                                <Logo textColorClassName="text-teal-600" />
+                            </button>
                         </div>
                         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                             <button 
@@ -702,12 +702,6 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
                                 className="px-4 sm:px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Blogs
-                            </button>
-                            <button 
-                                onClick={() => onOpenModal('signup')}
-                                className="px-4 sm:px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium text-sm sm:text-base"
-                            >
-                                Join Community
                             </button>
                         </div>
                     </div>
@@ -805,7 +799,9 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void, onOpenMod
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
                             </button>
-                            <Logo textColorClassName="text-teal-600" />
+                            <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+                                <Logo textColorClassName="text-teal-600" />
+                            </button>
                         </div>
                         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                             <button 
@@ -813,12 +809,6 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void, onOpenMod
                                 className="px-4 sm:px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium text-sm sm:text-base"
                             >
                                 Blogs
-                            </button>
-                            <button 
-                                onClick={() => onOpenModal('signup')}
-                                className="px-4 sm:px-6 py-2 bg-teal-500 text-white rounded-full hover:bg-teal-600 transition-colors font-medium text-sm sm:text-base"
-                            >
-                                Join Community
                             </button>
                         </div>
                     </div>
