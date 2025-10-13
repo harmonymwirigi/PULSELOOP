@@ -106,7 +106,7 @@ def send_invitation_email(invitee_email, inviter_name, token):
             </div>
             <div class="footer">
                 <p>© 2025 PulseLoopCare. All rights reserved.</p>
-                <p>Contact us: admin@pulseloopcare.com | +1 (832) 334-1801</p>
+                <p>Contact us: admin@pulseloopcare.com</p>
             </div>
         </div>
     </body>
@@ -162,7 +162,7 @@ def send_password_reset_email(user_email, user_name, reset_token):
             </div>
             <div class="footer">
                 <p>© 2025 PulseLoopCare. All rights reserved.</p>
-                <p>Contact us: admin@pulseloopcare.com | +1 (832) 334-1801</p>
+                <p>Contact us: admin@pulseloopcare.com</p>
             </div>
         </div>
     </body>
@@ -259,8 +259,7 @@ def send_welcome_email(user_email, user_name):
                 <div class="contact-info">
                     <h3>📞 Need Help?</h3>
                     <p>If you have any questions or need assistance, our support team is here to help:</p>
-                    <p><strong>Email:</strong> admin@pulseloopcare.com<br>
-                    <strong>Phone:</strong> +1 (832) 334-1801</p>
+                    <p><strong>Email:</strong> admin@pulseloopcare.com</p>
                 </div>
                 
                 <p style="text-align: center; margin-top: 30px; font-style: italic; color: #666;">
@@ -372,8 +371,7 @@ def send_approval_notification_email(user_email, user_name):
                 <div class="contact-info">
                     <h3>📞 Need Help Getting Started?</h3>
                     <p>Our support team is here to help you make the most of your PulseLoopCare experience:</p>
-                    <p><strong>Email:</strong> admin@pulseloopcare.com<br>
-                    <strong>Phone:</strong> +1 (832) 334-1801</p>
+                    <p><strong>Email:</strong> admin@pulseloopcare.com</p>
                 </div>
                 
                 <p style="text-align: center; margin-top: 30px; font-style: italic; color: #666;">
