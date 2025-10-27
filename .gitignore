@@ -144,7 +144,8 @@ backend/uploads/broadcasts/*
 !backend/uploads/resources/.gitkeep
 !backend/uploads/media/.gitkeep
 !backend/uploads/broadcasts/.gitkeep
-
+dist/*
+frontend/dist/*
 
 # Temporary files
 *.tmp
