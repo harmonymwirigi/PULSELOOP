@@ -12,7 +12,7 @@ ssh root@194.164.72.53
 ```**Purpose:** To gain command-line access to your live server.
 
 ---
-
+password: 3?K5GewI&eO/)ceu2m9l
 ### **Step 2: Stop the Live Application**
 
 Before updating files, we must stop the running application to prevent errors and ensure a clean update.

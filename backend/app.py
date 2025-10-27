@@ -756,9 +756,8 @@ def send_invitation_email(invitee_email, inviter_name, token):
         
         msg.attach(MIMEText(body, 'html'))
         
-        # Send email
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
+        # Send email using SSL (port 465 requires SSL, not TLS)
+        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
         text = msg.as_string()
         server.sendmail(SMTP_USERNAME, invitee_email, text)
@@ -820,9 +819,8 @@ def send_password_reset_email(user_email, user_name, reset_token):
         
         msg.attach(MIMEText(body, 'html'))
         
-        # Send email
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-        server.starttls()
+        # Send email using SSL (port 465 requires SSL, not TLS)
+        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT)
         server.login(SMTP_USERNAME, SMTP_PASSWORD)
         text = msg.as_string()
         server.sendmail(SMTP_USERNAME, user_email, text)
