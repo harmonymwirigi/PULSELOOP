@@ -54,6 +54,7 @@ const LandingPage: React.FC = () => {
     const [currentHeroMessage, setCurrentHeroMessage] = useState(0);
     const [showPolicy, setShowPolicy] = useState(false);
     const [showBlogs, setShowBlogs] = useState(false);
+    const [showAbout, setShowAbout] = useState(false);
     const [blogs, setBlogs] = useState<Blog[]>([]);
     const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
     const [blogsLoading, setBlogsLoading] = useState(false);
@@ -110,8 +111,15 @@ const LandingPage: React.FC = () => {
     }, []);
 
     const handleShowBlogs = () => {
+        setShowAbout(false);
         setShowBlogs(true);
         fetchBlogs();
+    };
+
+    const handleShowAbout = () => {
+        setShowBlogs(false);
+        setSelectedBlog(null);
+        setShowAbout(true);
     };
 
     const handleBlogClick = (blog: Blog) => {
@@ -125,6 +133,7 @@ const LandingPage: React.FC = () => {
     const handleBackToLanding = () => {
         setShowBlogs(false);
         setSelectedBlog(null);
+        setShowAbout(false);
     };
 
     useEffect(() => {
@@ -178,6 +187,16 @@ const LandingPage: React.FC = () => {
         return <PrivacyPolicy onClose={() => setShowPolicy(false)} />;
     }
 
+    if (showAbout) {
+        return (
+            <AboutSection
+                onBack={handleBackToLanding}
+                onOpenSignup={() => openModal('signup')}
+                onViewPolicy={viewPolicy}
+            />
+        );
+    }
+
     if (showBlogs) {
         if (selectedBlog) {
             return <PublicSingleBlogView blog={selectedBlog} onBack={handleBackToBlogs} onOpenModal={openModal} onShowBlogs={handleShowBlogs} />;
@@ -191,10 +210,16 @@ const LandingPage: React.FC = () => {
             
             {/* Header */}
             <header className="absolute top-0 left-0 w-full z-10 py-3 sm:py-6 px-4 sm:px-8">
-                <div className="container mx-auto flex justify-center items-center">
+                <div className="container mx-auto flex items-center justify-between">
                     <div className="bg-white/95 backdrop-blur-md rounded-2xl px-4 sm:px-6 py-3 sm:py-4 shadow-xl border border-white/20">
                         <Logo textColorClassName="text-teal-600" />
                     </div>
+                    <button
+                        onClick={handleShowAbout}
+                        className="px-4 py-2 rounded-full bg-white/80 backdrop-blur-md text-teal-600 font-semibold shadow hover:bg-white transition-colors duration-300"
+                    >
+                        About
+                    </button>
                 </div>
             </header>
 
@@ -291,6 +316,12 @@ const LandingPage: React.FC = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                                 </svg>
                                 Join the Community
+                            </button>
+                            <button onClick={handleShowAbout} className="group w-full sm:w-auto px-8 py-4 border border-white/60 text-white font-bold rounded-full hover:bg-white/10 transition-all duration-300 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 110-12 6 6 0 010 12z" />
+                                </svg>
+                                About PulseLoop
                             </button>
                         </div>
                         
@@ -868,6 +899,148 @@ const PublicSingleBlogView: React.FC<{ blog: Blog, onBack: () => void, onOpenMod
                     font-style: italic;
                 }
             `}</style>
+        </div>
+    );
+};
+
+const AboutSection: React.FC<{ onBack: () => void; onOpenSignup: () => void; onViewPolicy: () => void }> = ({ onBack, onOpenSignup, onViewPolicy }) => {
+    const missionPoints = [
+        "Foster peer support and reduce burnout through open, guided conversations.",
+        "Protect privacy and uphold ethical storytelling across all roles.",
+        "Turn shared experiences into insights for better workplace wellbeing.",
+        "Unite healthcare professionals across disciplines to celebrate the human side of care."
+    ];
+
+    const coreValues = [
+        { title: "Empathy", description: "We listen with compassion. Every story helps someone feel seen and understood." },
+        { title: "Privacy", description: "Confidentiality is at our core. We protect both users and patients with care." },
+        { title: "Connection", description: "Real conversations build stronger teams and healthier professionals." },
+        { title: "Integrity", description: "We are transparent, ethical, and committed to earning your trust." },
+        { title: "Innovation", description: "We use technology to promote emotional wellbeing and workplace resilience." },
+        { title: "Collaboration", description: "Every healthcare role matters — we grow stronger together." },
+        { title: "Purpose", description: "Behind every post is a mission to care, connect, and uplift." }
+    ];
+
+    return (
+        <div className="min-h-screen flex flex-col bg-gradient-to-br from-teal-50 via-white to-blue-50 text-gray-900">
+            <header className="w-full py-4 sm:py-6 px-4 sm:px-8 bg-white/70 backdrop-blur border-b border-teal-100 sticky top-0 z-20">
+                <div className="max-w-6xl mx-auto flex items-center justify-between">
+                    <button onClick={onBack} className="px-4 py-2 rounded-full border border-teal-500 text-teal-600 font-semibold hover:bg-teal-50 transition-colors">
+                        Back
+                    </button>
+                    <Logo textColorClassName="text-teal-600" />
+                    <button onClick={onOpenSignup} className="px-4 py-2 rounded-full bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold shadow-lg hover:from-teal-600 hover:to-teal-700 transition-colors">
+                        Join
+                    </button>
+                </div>
+            </header>
+
+            <main className="flex-1">
+                <section className="px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+                    <div className="max-w-6xl mx-auto space-y-16">
+                        <div className="grid lg:grid-cols-[1.1fr,0.9fr] gap-10 lg:gap-14 items-center">
+                            <div className="space-y-6">
+                                <span className="inline-flex items-center text-sm font-semibold uppercase tracking-[0.3em] text-teal-600">
+                                    About Pulseloop!
+                                </span>
+                                <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
+                                    Because Every Voice in Healthcare Deserves to Be Heard
+                                </h1>
+                                <p className="text-lg sm:text-xl leading-relaxed text-gray-600">
+                                    PulseLoop is a digital community built for healthcare professionals to share stories, reflect on real experiences, and support one another in a safe, private space. We believe connection heals — and that shared stories can strengthen both individuals and the entire healthcare system.
+                                </p>
+                                <div className="flex flex-wrap gap-3">
+                                    <span className="px-4 py-2 bg-white shadow-sm rounded-full text-sm font-semibold text-teal-600 border border-teal-100">Confidential Storytelling</span>
+                                    <span className="px-4 py-2 bg-white shadow-sm rounded-full text-sm font-semibold text-teal-600 border border-teal-100">Peer Support</span>
+                                    <span className="px-4 py-2 bg-white shadow-sm rounded-full text-sm font-semibold text-teal-600 border border-teal-100">Resilience Building</span>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-blue-400 rounded-3xl blur opacity-40"></div>
+                                <div className="relative bg-white rounded-3xl border border-teal-100 shadow-xl p-8 sm:p-10 space-y-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white text-2xl">
+                                            🌍
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-semibold text-gray-900">Our Vision</h2>
+                                            <p className="text-sm text-gray-500">Trusted spaces for healthcare voices</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-base sm:text-lg leading-relaxed text-gray-600">
+                                        To create a trusted space where healthcare professionals can share experiences, support one another, and build emotional resilience — transforming stories into strength, and connection into care.
+                                    </p>
+                                    <hr className="border-dashed border-teal-100" />
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white text-2xl">
+                                            🎯
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-semibold text-gray-900">Our Mission</h2>
+                                            <p className="text-sm text-gray-500">Express · Reflect · Connect</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3 text-left">
+                                        {missionPoints.map(point => (
+                                            <div key={point} className="flex items-start gap-3 text-sm sm:text-base text-gray-600">
+                                                <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-teal-50 text-teal-600 text-xs font-semibold">•</span>
+                                                <p className="leading-relaxed">{point}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="rounded-2xl border border-white/60 bg-white/80 backdrop-blur shadow-lg p-8">
+                                <p className="text-4xl">💡</p>
+                                <h3 className="text-2xl font-semibold text-gray-900 mt-4">The PulseLoop Promise</h3>
+                                <p className="mt-4 text-base sm:text-lg leading-relaxed text-gray-600">
+                                    We’re not just creating another platform — we’re building a community where healthcare professionals can breathe, share, and belong. Together, we nurture the wellbeing of those who care for everyone else.
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-white to-teal-50 shadow-lg p-8">
+                                <p className="text-4xl">🩺</p>
+                                <h3 className="text-2xl font-semibold text-gray-900 mt-4">Join the Loop</h3>
+                                <p className="mt-4 text-base sm:text-lg leading-relaxed text-gray-600">
+                                    Start sharing. Start connecting. Start healing — together.
+                                </p>
+                                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                                    <button
+                                        onClick={onOpenSignup}
+                                        className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-semibold rounded-full shadow-md hover:from-teal-600 hover:to-teal-700 transition-colors"
+                                    >
+                                        👉 [Sign Up Now]
+                                    </button>
+                                    <button
+                                        onClick={onViewPolicy}
+                                        className="flex-1 px-6 py-3 border border-teal-500 text-teal-600 font-semibold rounded-full hover:bg-teal-50 transition-colors"
+                                    >
+                                        [Learn More]
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6">
+                            <h3 className="text-2xl font-semibold text-gray-900">💡 Core Values</h3>
+                            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                {coreValues.map(value => (
+                                    <div key={value.title} className="h-full rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow p-6">
+                                        <h4 className="text-lg font-semibold text-teal-600">{value.title}</h4>
+                                        <p className="mt-3 text-sm sm:text-base leading-relaxed text-gray-600">{value.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+
+            <footer className="py-8 text-center text-sm text-gray-500 border-t border-teal-100 bg-white/60 backdrop-blur">
+                <p>&copy; {new Date().getFullYear()} PulseLoopCare. All rights reserved.</p>
+            </footer>
         </div>
     );
 };

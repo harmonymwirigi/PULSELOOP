@@ -7,7 +7,7 @@ export enum Role {
 }
 
 // FIX: Added a shared View type to resolve type conflicts.
-export type View = 'FEED' | 'ADMIN' | 'PROFILE' | 'RESOURCES' | 'BLOGS' | 'SINGLE_POST' | 'LOGIN' | 'SIGNUP' | 'SINGLE_RESOURCE' | 'SINGLE_BLOG' | 'INVITATIONS' | 'RESET_PASSWORD' | 'USER_PROFILE';
+export type View = 'FEED' | 'ADMIN' | 'PROFILE' | 'RESOURCES' | 'BLOGS' | 'SINGLE_POST' | 'LOGIN' | 'SIGNUP' | 'SINGLE_RESOURCE' | 'SINGLE_BLOG' | 'INVITATIONS' | 'RESET_PASSWORD' | 'USER_PROFILE' | 'NCLEX';
 
 export enum DisplayNamePreference {
     FullName = 'FullName',
@@ -201,6 +201,117 @@ export interface ConversationMessage {
     createdAt: string;
     reactions: ConversationReaction[];
 }
+
+// --- NCLEX TYPES ---
+
+export type NclexCourseStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+
+export type NclexResourceType = 'YOUTUBE' | 'VIDEO_UPLOAD' | 'PDF_UPLOAD' | 'ARTICLE' | 'LINK';
+
+export type NclexResourceProgressStatus = 'PENDING' | 'COMPLETED';
+
+export interface NclexCourseResource {
+    id: string;
+    courseId: string;
+    resourceType: NclexResourceType;
+    title: string;
+    description?: string | null;
+    url: string;
+    storageFilename?: string | null;
+    durationSeconds?: number | null;
+    orderIndex: number;
+    createdAt: string;
+    progressStatus?: NclexResourceProgressStatus | null;
+    completedAt?: string | null;
+}
+
+export interface NclexQuestionOption {
+    id: string;
+    questionId: string;
+    optionText: string;
+    orderIndex: number;
+    isCorrect?: boolean;
+    feedback?: string | null;
+}
+
+export interface NclexQuestion {
+    id: string;
+    courseId: string;
+    questionText: string;
+    explanation?: string | null;
+    source: 'AI' | 'MANUAL';
+    orderIndex: number;
+    createdAt: string;
+    updatedAt: string;
+    options: NclexQuestionOption[];
+}
+
+export type NclexEnrollmentStatus = 'ENROLLED' | 'COMPLETED';
+
+export interface NclexResourceProgress {
+    id: string;
+    enrollmentId: string;
+    resourceId: string;
+    status: NclexResourceProgressStatus;
+    completedAt?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+}
+
+export interface NclexEnrollment {
+    id: string;
+    courseId: string;
+    userId: string;
+    status: NclexEnrollmentStatus;
+    progressPercent: number;
+    latestScorePercent?: number | null;
+    attemptCount: number;
+    startedAt: string;
+    completedAt?: string | null;
+    attempts?: NclexAttempt[];
+    resourceProgress?: NclexResourceProgress[];
+}
+
+export interface NclexAttemptAnswer {
+    id: string;
+    attemptId: string;
+    questionId: string;
+    selectedOptionId?: string | null;
+    correctOptionId?: string | null;
+    isCorrect: boolean;
+    explanation?: string | null;
+    questionText?: string;
+    options?: NclexQuestionOption[];
+}
+
+export interface NclexAttempt {
+    id: string;
+    enrollmentId: string;
+    scorePercent: number;
+    totalQuestions: number;
+    correctAnswers: number;
+    submittedAt: string;
+    answers?: NclexAttemptAnswer[];
+}
+
+export interface NclexCourse {
+    id: string;
+    title: string;
+    description: string;
+    status: NclexCourseStatus;
+    createdBy?: string | null;
+    creator?: User | null;
+    publishedAt?: string | null;
+    createdAt?: string | null;
+    updatedAt?: string | null;
+    resourceCount?: number;
+    questionCount?: number;
+    resources?: NclexCourseResource[];
+    questions?: NclexQuestion[];
+    enrollment?: NclexEnrollment;
+    resourceProgress?: NclexResourceProgress[];
+}
+
 
 export interface ConversationReaction {
     id: string;

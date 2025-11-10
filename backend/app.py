@@ -15,6 +15,7 @@ from flask_socketio import SocketIO, join_room, leave_room
 from werkzeug.utils import secure_filename
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import desc
+from werkzeug.exceptions import RequestEntityTooLarge
 
 # --- Security and Authentication ---
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -559,7 +560,33 @@ def send_blog_rejection_email(user_email, user_name, blog_title, rejection_reaso
     return send_email(user_email, subject, html_body, is_html=True)
 
 # --- Import your corrected models ---
-from models import db, User, Post, Comment, Reaction, Resource, Blog, Invitation, CommentReaction, DiscussionAnalytics, Notification, BroadcastMessage, PasswordReset, Feedback, Conversation, ConversationMessage, ConversationReaction
+from models import (
+    db,
+    User,
+    Post,
+    Comment,
+    Reaction,
+    Resource,
+    Blog,
+    Invitation,
+    CommentReaction,
+    DiscussionAnalytics,
+    Notification,
+    BroadcastMessage,
+    PasswordReset,
+    Feedback,
+    Conversation,
+    ConversationMessage,
+    ConversationReaction,
+    NCLEXCourse,
+    NCLEXCourseResource,
+    NCLEXQuestion,
+    NCLEXQuestionOption,
+    NCLEXEnrollment,
+    NCLEXAttempt,
+    NCLEXAttemptAnswer,
+    NCLEXResourceProgress,
+)
 
 # Load environment variables
 load_dotenv()
@@ -576,6 +603,9 @@ MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'admin@pulseloopcare.com'
 # Frontend URL configuration
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
+# Upload configuration
+MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', '200'))
+
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -591,9 +621,13 @@ APP_DOMAIN = os.getenv("APP_DOMAIN", "http://localhost:5173")
 # Add a secret key for signing JWT tokens. Change this to a random string!
 SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-this")
 
+# Local file storage configuration
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'}
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+
 app.config['SECRET_KEY'] = SECRET_KEY
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE_MB * 1024 * 1024  # Configurable max file size
 
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -623,18 +657,17 @@ migrate = Migrate(app, db)
 #     app.logger.error(f"Error initializing Supabase client: {e}")
 
 # Local file storage configuration
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'}
 if OPENAI_API_KEY:
     openai.api_key = OPENAI_API_KEY
 
-# --- Local File Storage (Unchanged) ---
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+# --- Local File Storage ---
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'avatars'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'posts'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'resources'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'blogs'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'media'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'broadcasts'), exist_ok=True)
+os.makedirs(os.path.join(UPLOAD_FOLDER, 'nclex'), exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -651,6 +684,13 @@ def save_file_locally(file, folder):
         file.save(file_path)
         return f"/uploads/{folder}/{unique_filename}", unique_filename
     return None, None
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_large_file_error(_):
+    return jsonify({
+        "error": f"File too large. Maximum upload size is {MAX_UPLOAD_SIZE_MB} MB."
+    }), 413
 
 # Serve uploaded files
 @app.route('/uploads/<path:filename>')
@@ -709,6 +749,22 @@ def cleanup_storage_file(unique_filename, folder_name):
             app.logger.info(f"Successfully removed file '{unique_filename}' from local storage")
     except Exception as e:
         app.logger.error(f"Error removing file '{unique_filename}' from local storage: {e}")
+
+def get_current_user():
+    """Convenience helper to fetch the currently authenticated user."""
+    return User.query.get(getattr(request, "user_id", None))
+
+def get_course_by_id(course_id_str):
+    course = NCLEXCourse.query.filter_by(id=course_id_str).first()
+    return course
+
+def ensure_course_access(course, user):
+    """Ensure the given user has permission to view the course."""
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+    if user.role != 'ADMIN' and course.status != 'PUBLISHED':
+        return jsonify({"error": "Course is not yet available"}), 403
+    return None
 
 def generate_secure_token():
     """Generate a cryptographically secure, unique token for invitations."""
@@ -2261,6 +2317,564 @@ def delete_resource(resource_id):
         db.session.rollback()
         app.logger.error(f"Error deleting resource: {e}")
         return jsonify({"error": "Failed to delete resource"}), 500
+
+# --- NCLEX Course Management ---
+
+def _get_next_resource_order(course: NCLEXCourse) -> int:
+    if not course.resources:
+        return 1
+    return max((resource.order_index or 0) for resource in course.resources) + 1
+
+def _get_next_question_order(course: NCLEXCourse) -> int:
+    if not course.questions:
+        return 1
+    return max((question.order_index or 0) for question in course.questions) + 1
+
+def _recalculate_enrollment_progress(enrollment: NCLEXEnrollment):
+    if not enrollment:
+        return
+    total_resources = NCLEXCourseResource.query.filter_by(course_id=enrollment.course_id).count()
+    if total_resources <= 0:
+        enrollment.progress_percent = 0.0
+        return
+    completed_count = NCLEXResourceProgress.query.filter_by(
+        enrollment_id=enrollment.id,
+        status='COMPLETED'
+    ).count()
+    enrollment.progress_percent = round((completed_count / total_resources) * 100.0, 2)
+
+def _ensure_openai_configured():
+    if not OPENAI_API_KEY:
+        return jsonify({"error": "AI service is not configured on the server."}), 503
+    return None
+
+def _generate_questions_from_ai(course: NCLEXCourse, question_count: int = 5):
+    system_prompt = (
+        "You are an expert NCLEX-RN exam preparation assistant. "
+        "Generate high-quality NCLEX-style multiple-choice questions with four answer choices."
+    )
+    user_prompt = f"""
+Generate {question_count} unique NCLEX-style multiple choice questions based strictly on the following course description:
+\"\"\"{course.description}\"\"\"
+
+Return ONLY valid JSON in the following exact structure (no additional text):
+[
+  {{
+    "question": "Question text here",
+    "options": [
+      {{"text": "Answer choice 1", "isCorrect": false}},
+      {{"text": "Answer choice 2", "isCorrect": true}},
+      {{"text": "Answer choice 3", "isCorrect": false}},
+      {{"text": "Answer choice 4", "isCorrect": false}}
+    ],
+    "explanation": "Explain why the correct choice is right and the others are wrong"
+  }},
+  ...
+]
+
+Guidelines:
+- Each question must have exactly four answer choices.
+- Set exactly one option's "isCorrect" to true.
+- Provide a succinct explanation referencing nursing best practices.
+- Focus on pragmatic clinical decision-making steps related to the description.
+"""
+    try:
+        chat_completion = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.4,
+        )
+        response_text = chat_completion.choices[0].message.content
+        json_start = response_text.find('[')
+        json_end = response_text.rfind(']')
+        if json_start == -1 or json_end == -1:
+            raise ValueError("AI response did not contain a JSON array.")
+        json_payload = response_text[json_start:json_end + 1]
+        questions = json.loads(json_payload)
+        if not isinstance(questions, list):
+            raise ValueError("AI response JSON is not a list.")
+        return questions
+    except Exception as e:
+        app.logger.error(f"Error generating NCLEX questions via OpenAI: {e}")
+        raise
+
+
+@app.route('/api/nclex/courses', methods=['POST'])
+@role_required(['ADMIN'])
+def create_nclex_course():
+    data = request.get_json() or {}
+    title = (data.get('title') or '').strip()
+    description = (data.get('description') or '').strip()
+    status = (data.get('status') or 'DRAFT').upper()
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not description:
+        return jsonify({"error": "Description is required"}), 400
+    if status not in ['DRAFT', 'PUBLISHED', 'ARCHIVED']:
+        return jsonify({"error": "Invalid status"}), 400
+
+    user = get_current_user()
+    course = NCLEXCourse(
+        title=title,
+        description=description,
+        status=status,
+        created_by=user.id if user else None,
+    )
+    if status == 'PUBLISHED':
+        course.published_at = datetime.now(timezone.utc)
+
+    db.session.add(course)
+    db.session.commit()
+
+    return jsonify(course.to_dict(include_details=True, include_correct_answers=True)), 201
+
+
+@app.route('/api/nclex/courses', methods=['GET'])
+@authenticated_only
+def list_nclex_courses():
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "User not found"}), 401
+
+    scope = request.args.get('scope', 'USER').upper()
+    include_details = request.args.get('includeDetails', '0') == '1'
+
+    if user.role == 'ADMIN' and scope == 'ADMIN':
+        status_filter = request.args.get('status')
+        query = NCLEXCourse.query
+        if status_filter:
+            query = query.filter_by(status=status_filter.upper())
+        courses = query.order_by(desc(NCLEXCourse.created_at)).all()
+        return jsonify([
+            course.to_dict(
+                include_details=include_details,
+                include_correct_answers=True
+            ) for course in courses
+        ]), 200
+
+    courses = (
+        NCLEXCourse.query.filter_by(status='PUBLISHED')
+        .order_by(desc(NCLEXCourse.published_at), desc(NCLEXCourse.created_at))
+        .all()
+    )
+    enrollments = {
+        enrollment.course_id: enrollment
+        for enrollment in NCLEXEnrollment.query.filter_by(user_id=user.id).all()
+    }
+    for enrollment in enrollments.values():
+        _recalculate_enrollment_progress(enrollment)
+    return jsonify([
+        course.to_public_dict(
+            enrollment=enrollments.get(course.id)
+        ) if include_details else course.to_dict(
+            include_details=False,
+            include_correct_answers=False,
+            enrollment=enrollments.get(course.id)
+        )
+        for course in courses
+    ]), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>', methods=['GET'])
+@authenticated_only
+def get_nclex_course(course_id):
+    user = get_current_user()
+    course = get_course_by_id(str(course_id))
+    error = ensure_course_access(course, user)
+    if error:
+        return error
+
+    enrollment = None
+    if user:
+        enrollment = NCLEXEnrollment.query.filter_by(
+            course_id=course.id,
+            user_id=user.id
+        ).first()
+        if enrollment:
+            _recalculate_enrollment_progress(enrollment)
+
+    include_correct = user.role == 'ADMIN'
+    return jsonify(course.to_dict(
+        include_details=True,
+        include_correct_answers=include_correct,
+        enrollment=enrollment
+    )), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def update_nclex_course(course_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    data = request.get_json() or {}
+    title = data.get('title')
+    description = data.get('description')
+    status = data.get('status')
+
+    if title is not None:
+        course.title = title.strip()
+    if description is not None:
+        course.description = description.strip()
+    if status is not None:
+        status = status.upper()
+        if status not in ['DRAFT', 'PUBLISHED', 'ARCHIVED']:
+            return jsonify({"error": "Invalid status"}), 400
+        course.status = status
+        if status == 'PUBLISHED' and not course.published_at:
+            course.published_at = datetime.now(timezone.utc)
+        if status != 'PUBLISHED':
+            course.published_at = None
+
+    db.session.commit()
+    return jsonify(course.to_dict(include_details=True, include_correct_answers=True)), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/resources', methods=['POST'])
+@role_required(['ADMIN'])
+def add_nclex_resource(course_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        form = request.form
+        resource_type = (form.get('resourceType') or '').upper()
+        title = (form.get('title') or '').strip()
+        description = (form.get('description') or '').strip()
+        url = (form.get('url') or '').strip()
+        upload_file = request.files.get('file')
+    else:
+        data = request.get_json() or {}
+        resource_type = (data.get('resourceType') or '').upper()
+        title = (data.get('title') or '').strip()
+        description = (data.get('description') or '').strip()
+        url = (data.get('url') or '').strip()
+        upload_file = None
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if resource_type not in ['YOUTUBE', 'VIDEO_UPLOAD', 'PDF_UPLOAD', 'ARTICLE', 'LINK']:
+        return jsonify({"error": "Invalid resource type"}), 400
+
+    storage_filename = None
+    resource_url = url
+
+    if resource_type in ['VIDEO_UPLOAD', 'PDF_UPLOAD']:
+        if not upload_file:
+            return jsonify({"error": "File upload is required for this resource type"}), 400
+        saved_url, saved_filename = save_file_locally(upload_file, 'nclex')
+        if not saved_url:
+            return jsonify({"error": "Failed to store uploaded file"}), 500
+        resource_url = saved_url
+        storage_filename = saved_filename
+    else:
+        if not resource_url:
+            return jsonify({"error": "URL is required for this resource type"}), 400
+
+    resource = NCLEXCourseResource(
+        course_id=course.id,
+        resource_type=resource_type,
+        title=title,
+        description=description,
+        url=resource_url,
+        storage_filename=storage_filename,
+        order_index=_get_next_resource_order(course)
+    )
+    db.session.add(resource)
+    db.session.commit()
+
+    return jsonify(resource.to_dict()), 201
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/resources/<uuid:resource_id>', methods=['DELETE'])
+@role_required(['ADMIN'])
+def delete_nclex_resource(course_id, resource_id):
+    resource = NCLEXCourseResource.query.filter_by(
+        id=str(resource_id),
+        course_id=str(course_id)
+    ).first()
+    if not resource:
+        return jsonify({"error": "Resource not found"}), 404
+
+    if resource.storage_filename:
+        cleanup_storage_file(resource.storage_filename, 'nclex')
+
+    db.session.delete(resource)
+    db.session.commit()
+    return jsonify({"message": "Resource deleted successfully"}), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/resources/<uuid:resource_id>/progress', methods=['PUT'])
+@authenticated_only
+def update_nclex_resource_progress(course_id, resource_id):
+    user = get_current_user()
+    course = get_course_by_id(str(course_id))
+    error = ensure_course_access(course, user)
+    if error:
+        return error
+
+    resource = NCLEXCourseResource.query.filter_by(
+        id=str(resource_id),
+        course_id=course.id
+    ).first()
+    if not resource:
+        return jsonify({"error": "Resource not found"}), 404
+
+    enrollment = NCLEXEnrollment.query.filter_by(
+        course_id=course.id,
+        user_id=user.id
+    ).first()
+    if not enrollment:
+        return jsonify({"error": "Please subscribe to this course to track progress."}), 400
+
+    payload = request.get_json() or {}
+    status = (payload.get('status') or '').upper()
+    if status not in ['PENDING', 'COMPLETED']:
+        return jsonify({"error": "Invalid status. Allowed values are PENDING or COMPLETED."}), 400
+
+    progress = NCLEXResourceProgress.query.filter_by(
+        enrollment_id=enrollment.id,
+        resource_id=resource.id
+    ).first()
+
+    if not progress:
+        progress = NCLEXResourceProgress(
+            enrollment_id=enrollment.id,
+            resource_id=resource.id
+        )
+        db.session.add(progress)
+        db.session.flush()
+
+    progress.status = status
+    if status == 'COMPLETED':
+        if not progress.completed_at:
+            progress.completed_at = datetime.now(timezone.utc)
+    else:
+        progress.completed_at = None
+
+    _recalculate_enrollment_progress(enrollment)
+    db.session.commit()
+
+    # Refresh instances to ensure latest relationships are loaded
+    updated_course = get_course_by_id(course.id)
+    updated_enrollment = NCLEXEnrollment.query.filter_by(
+        course_id=course.id,
+        user_id=user.id
+    ).first()
+
+    return jsonify({
+        "course": updated_course.to_dict(
+            include_details=True,
+            include_correct_answers=False,
+            enrollment=updated_enrollment
+        )
+    }), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/generate-questions', methods=['POST'])
+@role_required(['ADMIN'])
+def generate_nclex_questions(course_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    error = _ensure_openai_configured()
+    if error:
+        return error
+
+    data = request.get_json() or {}
+    question_count = int(data.get('questionCount', 5))
+    replace_existing = data.get('replaceExisting', True)
+
+    if question_count <= 0 or question_count > 20:
+        return jsonify({"error": "questionCount must be between 1 and 20"}), 400
+
+    try:
+        generated_questions = _generate_questions_from_ai(course, question_count)
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate questions: {e}"}), 500
+
+    if replace_existing:
+        for existing_question in course.questions or []:
+            for option in existing_question.options or []:
+                db.session.delete(option)
+            db.session.delete(existing_question)
+        db.session.flush()
+
+    starting_order = _get_next_question_order(course)
+    created_questions = []
+
+    for idx, question_payload in enumerate(generated_questions):
+        question_text = (question_payload.get('question') or '').strip()
+        explanation = (question_payload.get('explanation') or '').strip()
+        options_payload = question_payload.get('options') or []
+
+        if not question_text or not options_payload:
+            continue
+
+        question = NCLEXQuestion(
+            course_id=course.id,
+            question_text=question_text,
+            explanation=explanation,
+            source='AI',
+            order_index=starting_order + idx
+        )
+        db.session.add(question)
+        db.session.flush()
+
+        for option_index, option_payload in enumerate(options_payload):
+            option_text = (option_payload.get('text') or '').strip()
+            if not option_text:
+                continue
+            is_correct = bool(option_payload.get('isCorrect', False))
+            feedback = option_payload.get('feedback') or None
+            option = NCLEXQuestionOption(
+                question_id=question.id,
+                option_text=option_text,
+                is_correct=is_correct,
+                feedback=feedback,
+                order_index=option_index + 1
+            )
+            db.session.add(option)
+
+        created_questions.append(question)
+
+    db.session.commit()
+
+    return jsonify([
+        question.to_dict(include_correct_answers=True)
+        for question in created_questions
+    ]), 201
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/subscribe', methods=['POST'])
+@authenticated_only
+def subscribe_nclex_course(course_id):
+    user = get_current_user()
+    course = get_course_by_id(str(course_id))
+    error = ensure_course_access(course, user)
+    if error:
+        return error
+
+    enrollment = NCLEXEnrollment.query.filter_by(
+        course_id=course.id,
+        user_id=user.id
+    ).first()
+
+    if not enrollment:
+        enrollment = NCLEXEnrollment(
+            course_id=course.id,
+            user_id=user.id,
+            status='ENROLLED'
+        )
+        db.session.add(enrollment)
+        db.session.flush()
+
+    _recalculate_enrollment_progress(enrollment)
+    db.session.commit()
+
+    refreshed_enrollment = NCLEXEnrollment.query.filter_by(
+        course_id=course.id,
+        user_id=user.id
+    ).first()
+
+    return jsonify(refreshed_enrollment.to_dict(include_attempts=True, include_resource_progress=True)), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/attempts', methods=['POST'])
+@authenticated_only
+def submit_nclex_attempt(course_id):
+    user = get_current_user()
+    course = get_course_by_id(str(course_id))
+    error = ensure_course_access(course, user)
+    if error:
+        return error
+
+    enrollment = NCLEXEnrollment.query.filter_by(
+        course_id=course.id,
+        user_id=user.id
+    ).first()
+    if not enrollment:
+        return jsonify({"error": "User is not enrolled in this course"}), 400
+
+    data = request.get_json() or {}
+    answers_payload = data.get('answers')
+    if not isinstance(answers_payload, list) or not answers_payload:
+        return jsonify({"error": "answers array is required"}), 400
+
+    questions_map = {str(question.id): question for question in course.questions or []}
+    if not questions_map:
+        return jsonify({"error": "Course has no questions configured"}), 400
+
+    attempt = NCLEXAttempt(
+        enrollment_id=enrollment.id,
+        total_questions=len(questions_map),
+        correct_answers=0,
+        score_percent=0.0,
+    )
+    db.session.add(attempt)
+    db.session.flush()
+
+    correct_count = 0
+    processed_questions = set()
+
+    for answer_payload in answers_payload:
+        question_id = str(answer_payload.get('questionId', '')).strip()
+        selected_option_id = answer_payload.get('selectedOptionId')
+
+        if not question_id or question_id not in questions_map:
+            continue
+
+        if question_id in processed_questions:
+            continue
+        processed_questions.add(question_id)
+
+        question = questions_map[question_id]
+        correct_option = next((opt for opt in question.options or [] if opt.is_correct), None)
+        is_correct = bool(correct_option and selected_option_id == str(correct_option.id))
+        if is_correct:
+            correct_count += 1
+
+        attempt_answer = NCLEXAttemptAnswer(
+            attempt_id=attempt.id,
+            question_id=question.id,
+            selected_option_id=str(selected_option_id) if selected_option_id else None,
+            correct_option_id=str(correct_option.id) if correct_option else None,
+            is_correct=is_correct,
+            explanation=question.explanation
+        )
+        db.session.add(attempt_answer)
+
+    if processed_questions:
+        attempt.total_questions = len(processed_questions)
+
+    if attempt.total_questions > 0:
+        attempt.correct_answers = correct_count
+        attempt.score_percent = round((correct_count / attempt.total_questions) * 100, 2)
+    else:
+        attempt.correct_answers = 0
+        attempt.score_percent = 0.0
+
+    enrollment.attempt_count = (enrollment.attempt_count or 0) + 1
+    enrollment.latest_score_percent = attempt.score_percent
+    enrollment.progress_percent = 100.0
+    if attempt.score_percent >= 70 and enrollment.status != 'COMPLETED':
+        enrollment.status = 'COMPLETED'
+        enrollment.completed_at = datetime.now(timezone.utc)
+
+    db.session.commit()
+
+    return jsonify({
+        "attempt": attempt.to_dict(include_answers=True),
+        "enrollment": enrollment.to_dict(include_attempts=True, include_resource_progress=True)
+    }), 201
+
 
 # --- Blog Endpoints ---
 

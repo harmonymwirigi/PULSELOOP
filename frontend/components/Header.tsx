@@ -241,9 +241,26 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     className="w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center space-x-3"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3h9M7 16h6M7 8h6v4H7V8z" />
                                     </svg>
                                     <span>Blogs</span>
+                                </button>
+                                
+                                <button 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        console.log('Mobile NCLEX button clicked');
+                                        navigateTo('NCLEX'); 
+                                        setIsDropdownOpen(false); 
+                                    }} 
+                                    className="w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center space-x-3"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422A12.083 12.083 0 0112 21.5a12.083 12.083 0 01-6.16-10.922L12 14z" />
+                                    </svg>
+                                    <span>NCLEX</span>
                                 </button>
                                 
                                 <button 
@@ -337,6 +354,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     <NavButton view="FEED">Feed</NavButton>
                                     <NavButton view="RESOURCES">Resources</NavButton>
                                     <NavButton view="BLOGS">Blogs</NavButton>
+                                    <NavButton view="NCLEX">NCLEX</NavButton>
                                     {user.role === Role.ADMIN && <NavButton view="ADMIN">Admin Panel</NavButton>}
                                 </div>
                                 
