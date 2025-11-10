@@ -1,6 +1,6 @@
 // frontend/services/mockApi.ts
 
-import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback, Conversation, ConversationMessage, ConversationReaction } from '../types';
+import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback, Conversation, ConversationMessage, ConversationReaction, NclexCourse, NclexCourseResource, NclexCourseStatus, NclexResourceType, NclexEnrollment, NclexAttempt, NclexQuestion, NclexResourceProgress, NclexResourceProgressStatus } from '../types';
 
 // Auto-detect production environment and set appropriate API URL
 const getApiBaseUrl = () => {
@@ -51,6 +51,55 @@ const getAbsoluteUrl = (url: string | null | undefined): string | null => {
     if (url.startsWith('http')) return url; // Already absolute
     if (url.startsWith('/uploads/')) return `${BACKEND_BASE_URL}${url}`;
     return url;
+};
+
+const normalizeNclexEnrollment = (enrollment: NclexEnrollment | undefined | null): NclexEnrollment | null => {
+    if (!enrollment) return null;
+    return {
+        ...enrollment,
+        progressPercent: Number(enrollment.progressPercent ?? 0),
+        latestScorePercent: enrollment.latestScorePercent !== undefined && enrollment.latestScorePercent !== null
+            ? Number(enrollment.latestScorePercent)
+            : undefined,
+        attempts: (enrollment.attempts || []).map((attempt: NclexAttempt) => ({
+            ...attempt,
+            answers: (attempt.answers || []).map(answer => ({
+                ...answer,
+                options: (answer.options || []).map(option => ({ ...option })),
+            })),
+        })),
+        resourceProgress: (enrollment.resourceProgress || []).map((progress: NclexResourceProgress) => ({
+            ...progress,
+            completedAt: progress.completedAt || null,
+            createdAt: progress.createdAt || null,
+            updatedAt: progress.updatedAt || null,
+        })),
+    };
+};
+
+const normalizeNclexCourse = (course: NclexCourse | undefined | null): NclexCourse | null => {
+    if (!course) return null;
+    const normalizedEnrollment = normalizeNclexEnrollment(course.enrollment);
+    return {
+        ...course,
+        resources: (course.resources || []).map((resource: NclexCourseResource) => ({
+            ...resource,
+            url: getAbsoluteUrl(resource.url) || resource.url,
+            progressStatus: resource.progressStatus || null,
+            completedAt: resource.completedAt || null,
+        })),
+        questions: (course.questions || []).map(question => ({
+            ...question,
+            options: (question.options || []).map(option => ({ ...option })),
+        })),
+        enrollment: normalizedEnrollment || undefined,
+        resourceProgress: (course.resourceProgress || []).map((progress: NclexResourceProgress) => ({
+            ...progress,
+            completedAt: progress.completedAt || null,
+            createdAt: progress.createdAt || null,
+            updatedAt: progress.updatedAt || null,
+        })),
+    };
 };
 
 const handleApiResponse = async (response: Response) => {
@@ -445,6 +494,171 @@ export const createResource = async (data: CreateResourceData): Promise<Resource
         body: formData,
     });
     return handleApiResponse(response);
+};
+
+// --- NCLEX COURSES ---
+
+export interface CreateNclexCoursePayload {
+    title: string;
+    description: string;
+    status?: NclexCourseStatus;
+}
+
+export interface UpdateNclexCoursePayload {
+    title?: string;
+    description?: string;
+    status?: NclexCourseStatus;
+}
+
+export interface CreateNclexResourcePayload {
+    resourceType: NclexResourceType;
+    title: string;
+    description?: string;
+    url?: string;
+    file?: File;
+}
+
+export interface GenerateNclexQuestionsPayload {
+    questionCount?: number;
+    replaceExisting?: boolean;
+}
+
+export const createNclexCourse = async (payload: CreateNclexCoursePayload): Promise<NclexCourse> => {
+    const response = await fetchWithAuth('/nclex/courses', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    const course = await handleApiResponse(response);
+    return normalizeNclexCourse(course)!;
+};
+
+export const updateNclexCourse = async (courseId: string, payload: UpdateNclexCoursePayload): Promise<NclexCourse> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+    });
+    const course = await handleApiResponse(response);
+    return normalizeNclexCourse(course)!;
+};
+
+export const getNclexCourses = async (includeDetails: boolean = false): Promise<NclexCourse[]> => {
+    const response = await fetchWithAuth(`/nclex/courses?includeDetails=${includeDetails ? 1 : 0}`);
+    const courses: NclexCourse[] = await handleApiResponse(response);
+    return courses.map(course => normalizeNclexCourse(course)!).filter(Boolean) as NclexCourse[];
+};
+
+export const getAdminNclexCourses = async (includeDetails: boolean = true, status?: NclexCourseStatus): Promise<NclexCourse[]> => {
+    let endpoint = `/nclex/courses?scope=ADMIN&includeDetails=${includeDetails ? 1 : 0}`;
+    if (status) {
+        endpoint += `&status=${encodeURIComponent(status)}`;
+    }
+    const response = await fetchWithAuth(endpoint);
+    const courses: NclexCourse[] = await handleApiResponse(response);
+    return courses.map(course => normalizeNclexCourse(course)!).filter(Boolean) as NclexCourse[];
+};
+
+export const getNclexCourse = async (courseId: string): Promise<NclexCourse> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}`);
+    const course = await handleApiResponse(response);
+    return normalizeNclexCourse(course)!;
+};
+
+export const addNclexCourseResource = async (courseId: string, payload: CreateNclexResourcePayload): Promise<NclexCourseResource> => {
+    const isUpload = payload.resourceType === 'VIDEO_UPLOAD' || payload.resourceType === 'PDF_UPLOAD';
+    let response: Response;
+
+    if (isUpload) {
+        const formData = new FormData();
+        formData.append('resourceType', payload.resourceType);
+        formData.append('title', payload.title);
+        if (payload.description) formData.append('description', payload.description);
+        if (payload.file) formData.append('file', payload.file);
+        if (payload.url) formData.append('url', payload.url);
+
+        response = await fetchWithAuth(`/nclex/courses/${courseId}/resources`, {
+            method: 'POST',
+            body: formData,
+        });
+    } else {
+        response = await fetchWithAuth(`/nclex/courses/${courseId}/resources`, {
+            method: 'POST',
+            body: JSON.stringify({
+                resourceType: payload.resourceType,
+                title: payload.title,
+                description: payload.description,
+                url: payload.url,
+            }),
+        });
+    }
+
+    const resource = await handleApiResponse(response);
+    return {
+        ...resource,
+        url: getAbsoluteUrl(resource.url) || resource.url,
+    };
+};
+
+export const deleteNclexCourseResource = async (courseId: string, resourceId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/resources/${resourceId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
+export const updateNclexResourceProgress = async (
+    courseId: string,
+    resourceId: string,
+    status: NclexResourceProgressStatus
+): Promise<NclexCourse> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/resources/${resourceId}/progress`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    });
+    const result = await handleApiResponse(response);
+    return normalizeNclexCourse(result.course)!;
+};
+
+export const generateNclexQuestions = async (courseId: string, payload: GenerateNclexQuestionsPayload = {}): Promise<NclexQuestion[]> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/generate-questions`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+};
+
+export const subscribeToNclexCourse = async (courseId: string): Promise<NclexEnrollment> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/subscribe`, {
+        method: 'POST',
+    });
+    const enrollment = await handleApiResponse(response);
+    return normalizeNclexEnrollment(enrollment)!;
+};
+
+export interface SubmitNclexAttemptPayload {
+    answers: Array<{ questionId: string; selectedOptionId?: string | null }>;
+}
+
+export interface SubmitNclexAttemptResponse {
+    attempt: NclexAttempt;
+    enrollment: NclexEnrollment;
+}
+
+export const submitNclexAttempt = async (courseId: string, payload: SubmitNclexAttemptPayload): Promise<SubmitNclexAttemptResponse> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/attempts`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    const result = await handleApiResponse(response);
+    return {
+        attempt: {
+            ...result.attempt,
+            answers: (result.attempt.answers || []).map((answer: any) => ({
+                ...answer,
+                options: (answer.options || []).map((option: any) => ({ ...option })),
+            })),
+        },
+        enrollment: normalizeNclexEnrollment(result.enrollment)!,
+    };
 };
 
 // --- BLOGS ---

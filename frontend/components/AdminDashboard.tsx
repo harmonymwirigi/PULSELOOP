@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl } from '../services/mockApi';
-import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View } from '../types';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse } from '../services/mockApi';
+import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
-type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS';
+type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS' | 'NCLEX';
 
 interface AdminDashboardProps {
     navigateTo: (view: View) => void;
@@ -31,6 +31,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
     const [uploadingImage, setUploadingImage] = useState(false);
     const [showRejectModal, setShowRejectModal] = useState<{show: boolean, type: 'resource' | 'blog', item: Resource | Blog | null}>({show: false, type: 'resource', item: null});
     const [rejectionReason, setRejectionReason] = useState('');
+    const [nclexCourses, setNclexCourses] = useState<NclexCourse[]>([]);
+    const [loadingNclex, setLoadingNclex] = useState(false);
+    const [nclexError, setNclexError] = useState<string | null>(null);
+    const [showNclexCourseForm, setShowNclexCourseForm] = useState(false);
+    const [showNclexResourceForm, setShowNclexResourceForm] = useState(false);
+    const [loadingNclexDetail, setLoadingNclexDetail] = useState(false);
+    const [nclexMessage, setNclexMessage] = useState<string | null>(null);
+    const [selectedNclexCourse, setSelectedNclexCourse] = useState<NclexCourse | null>(null);
+    const [nclexCourseForm, setNclexCourseForm] = useState<{ title: string; description: string; status: NclexCourseStatus }>({ title: '', description: '', status: 'DRAFT' });
+    const [nclexResourceForm, setNclexResourceForm] = useState<{ resourceType: NclexResourceType; title: string; description: string; url: string; file: File | null }>({
+        resourceType: 'YOUTUBE',
+        title: '',
+        description: '',
+        url: '',
+        file: null,
+    });
+    const [savingCourse, setSavingCourse] = useState(false);
+    const [addingNclexResource, setAddingNclexResource] = useState(false);
+    const [generatingNclexQuestions, setGeneratingNclexQuestions] = useState(false);
+    const [questionCount, setQuestionCount] = useState<number>(5);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -59,9 +79,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         }
     }, []);
 
+    const loadNclexCourses = useCallback(async () => {
+        setLoadingNclex(true);
+        setNclexError(null);
+        try {
+            const courses = await getAdminNclexCourses();
+            setNclexCourses(courses);
+        } catch (err: any) {
+            setNclexError(`Failed to load NCLEX courses: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setLoadingNclex(false);
+        }
+    }, []);
+
+    const refreshNclexCourse = useCallback(async (courseId: string) => {
+        setLoadingNclexDetail(true);
+        try {
+            const course = await getNclexCourse(courseId);
+            setSelectedNclexCourse(course);
+        } catch (err: any) {
+            setNclexError(`Failed to load course details: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setLoadingNclexDetail(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        if (activeTab === 'NCLEX') {
+            loadNclexCourses();
+        }
+    }, [activeTab, loadNclexCourses]);
 
     const handleApprove = async (id: string, type: 'USER' | 'RESOURCE' | 'BLOG') => {
         setApprovingId(id);
@@ -356,6 +407,558 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         setImageFile(null);
     };
 
+    const handleCreateNclexCourse = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSavingCourse(true);
+        setNclexError(null);
+        setNclexMessage(null);
+         try {
+            const newCourse = await createNclexCourse(nclexCourseForm);
+            setNclexCourseForm({ title: '', description: '', status: 'DRAFT' });
+            setShowNclexCourseForm(false);
+            setShowNclexResourceForm(false);
+            setNclexMessage('Course created successfully.');
+            await loadNclexCourses();
+            setSelectedNclexCourse(newCourse);
+            await refreshNclexCourse(newCourse.id);
+        } catch (err: any) {
+            setNclexError(`Failed to create NCLEX course: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setSavingCourse(false);
+        }
+    };
+
+    const handleUpdateNclexStatus = async (course: NclexCourse, newStatus: NclexCourseStatus) => {
+        setApprovingId(course.id);
+        setNclexError(null);
+        setNclexMessage(null);
+         try {
+             await updateNclexCourse(course.id, { status: newStatus });
+             setNclexMessage(`Course status updated to ${newStatus}.`);
+             await loadNclexCourses();
+             if (selectedNclexCourse && selectedNclexCourse.id === course.id) {
+                 await refreshNclexCourse(course.id);
+             }
+         } catch (err: any) {
+             setNclexError(`Failed to update NCLEX course status: ${err?.message || 'Unknown error'}`);
+         } finally {
+             setApprovingId(null);
+         }
+     };
+
+    const handleSelectNclexCourse = (courseId: string) => {
+         const course = nclexCourses.find(c => c.id === courseId);
+         if (course) {
+             setSelectedNclexCourse(course);
+             setShowNclexCourseForm(false);
+             setShowNclexResourceForm(false);
+             setNclexError(null);
+             setNclexMessage(null);
+             setNclexResourceForm({ resourceType: 'YOUTUBE', title: '', description: '', url: '', file: null });
+             refreshNclexCourse(courseId);
+         }
+     };
+
+    const handleAddNclexResource = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const { resourceType, title, url, file, description } = nclexResourceForm;
+
+        if (!title.trim()) {
+            setNclexError('Please provide a resource title.');
+            return;
+        }
+
+        if ((resourceType === 'YOUTUBE' || resourceType === 'LINK') && !url.trim()) {
+            setNclexError('Please provide a valid URL for this resource.');
+            return;
+        }
+
+        if ((resourceType === 'VIDEO_UPLOAD' || resourceType === 'PDF_UPLOAD') && !file) {
+            setNclexError('Please upload a file for this resource.');
+            return;
+        }
+
+        if (resourceType === 'ARTICLE' && !description.trim()) {
+            setNclexError('Please add content or notes for the article resource.');
+            return;
+        }
+
+        setAddingNclexResource(true);
+        setNclexError(null);
+        setNclexMessage(null);
+        try {
+            await addNclexCourseResource(selectedNclexCourse!.id, nclexResourceForm);
+            setNclexResourceForm({ resourceType: 'YOUTUBE', title: '', description: '', url: '', file: null });
+            setShowNclexResourceForm(false);
+            setNclexMessage('Resource added successfully.');
+            await loadNclexCourses();
+            await refreshNclexCourse(selectedNclexCourse!.id);
+        } catch (err: any) {
+            setNclexError(`Failed to add NCLEX resource: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setAddingNclexResource(false);
+        }
+    };
+
+    const handleDeleteNclexResource = async (resourceId: string) => {
+        setApprovingId(resourceId);
+        setNclexError(null);
+        setNclexMessage(null);
+        try {
+            await deleteNclexCourseResource(selectedNclexCourse!.id, resourceId);
+            setNclexMessage('Resource removed successfully.');
+            await loadNclexCourses();
+            await refreshNclexCourse(selectedNclexCourse!.id);
+        } catch (err: any) {
+            setNclexError(`Failed to remove NCLEX resource: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleGenerateNclexQuestions = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setGeneratingNclexQuestions(true);
+        setNclexError(null);
+        setNclexMessage(null);
+        try {
+            const result = await generateNclexQuestions(selectedNclexCourse!.id, { questionCount });
+            const generatedQuestions = Array.isArray(result) ? result : ((result as any)?.questions ?? []);
+            const successMessage = !Array.isArray(result) && (result as any)?.message
+                ? (result as any).message
+                : `Generated ${generatedQuestions.length} question${generatedQuestions.length === 1 ? '' : 's'} successfully.`;
+            setNclexMessage(successMessage);
+            await loadNclexCourses();
+            await refreshNclexCourse(selectedNclexCourse!.id);
+        } catch (err: any) {
+            setNclexError(`Failed to generate NCLEX questions: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setGeneratingNclexQuestions(false);
+        }
+    };
+
+    const renderNclexAdminPanel = () => {
+        const selectedCourseResources = selectedNclexCourse?.resources ?? [];
+        const selectedCourseQuestions = selectedNclexCourse?.questions ?? [];
+        const selectedCourseQuestionCount = selectedCourseQuestions.length || selectedNclexCourse?.questionCount || 0;
+
+        return (
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-800">NCLEX Courses</h3>
+                    <button
+                        onClick={() => {
+                            setSelectedNclexCourse(null);
+                            setShowNclexCourseForm((prev) => !prev);
+                            setNclexCourseForm({ title: '', description: '', status: 'DRAFT' });
+                            setNclexError(null);
+                            setNclexMessage(null);
+                            setShowNclexResourceForm(false);
+                        }}
+                        className="bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition-colors"
+                    >
+                        {showNclexCourseForm ? 'Close Form' : 'Create New Course'}
+                    </button>
+                </div>
+
+                {showNclexCourseForm && (
+                    <div className="border border-teal-200 rounded-2xl p-5 bg-teal-50">
+                        <h4 className="text-md font-semibold text-teal-700 mb-3">New NCLEX Course</h4>
+                        <form onSubmit={handleCreateNclexCourse} className="grid md:grid-cols-3 gap-4">
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Title</label>
+                                <input
+                                    type="text"
+                                    value={nclexCourseForm.title}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, title: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    placeholder="Course title"
+                                    required
+                                />
+                            </div>
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+                                <select
+                                    value={nclexCourseForm.status}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, status: e.target.value as NclexCourseStatus }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                >
+                                    <option value="DRAFT">Draft</option>
+                                    <option value="PUBLISHED">Published</option>
+                                    <option value="ARCHIVED">Archived</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">Description</label>
+                                <textarea
+                                    value={nclexCourseForm.description}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, description: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    rows={3}
+                                    placeholder="Outline what this NCLEX prep course covers"
+                                    required
+                                />
+                            </div>
+                            <div className="md:col-span-3 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowNclexCourseForm(false);
+                                        setNclexCourseForm({ title: '', description: '', status: 'DRAFT' });
+                                    }}
+                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={savingCourse}
+                                    className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    {savingCourse ? 'Creating...' : 'Create Course'}
+                                </button>
+                            </div>
+                        </form>
+                        {nclexError && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                                {nclexError}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {nclexError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                        {nclexError}
+                    </div>
+                )}
+
+                {nclexMessage && (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg">
+                        {nclexMessage}
+                    </div>
+                )}
+
+                {loadingNclex ? (
+                    <div className="flex justify-center py-10"><Spinner size="md" color="teal" /></div>
+                ) : nclexCourses.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">No NCLEX courses found.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resources</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {nclexCourses.map((course) => (
+                                    <tr key={course.id} className="hover:bg-gray-50">
+                                        <td className="px-6 py-4">
+                                            <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                                                {course.title}
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                {course.description}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                course.status === 'DRAFT'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : course.status === 'PUBLISHED'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-gray-100 text-gray-800'
+                                            }`}>
+                                                {course.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            {course.resources?.length ?? 0}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <button
+                                                onClick={() => handleSelectNclexCourse(course.id)}
+                                                className="text-indigo-600 hover:text-indigo-900"
+                                            >
+                                                View Resources
+                                            </button>
+                                            {course.status === 'DRAFT' && (
+                                                <button
+                                                    onClick={() => handleUpdateNclexStatus(course, 'PUBLISHED')}
+                                                    disabled={approvingId === course.id}
+                                                    className="text-green-600 hover:text-green-900 disabled:opacity-50"
+                                                >
+                                                    Publish
+                                                </button>
+                                            )}
+                                            {course.status === 'PUBLISHED' && (
+                                                <button
+                                                    onClick={() => handleUpdateNclexStatus(course, 'ARCHIVED')}
+                                                    disabled={approvingId === course.id}
+                                                    className="text-yellow-600 hover:text-yellow-900 disabled:opacity-50"
+                                                >
+                                                    Archive
+                                                </button>
+                                            )}
+                                            {course.status === 'ARCHIVED' && (
+                                                <button
+                                                    onClick={() => handleUpdateNclexStatus(course, 'DRAFT')}
+                                                    disabled={approvingId === course.id}
+                                                    className="text-blue-600 hover:text-blue-900 disabled:opacity-50"
+                                                >
+                                                    Restore to Draft
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+
+                {selectedNclexCourse && (
+                    <div className="mt-6 p-4 bg-gray-50 rounded-lg shadow-sm">
+                        <h4 className="text-md font-bold text-gray-800 mb-2">
+                            {selectedNclexCourse.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                            {selectedNclexCourse.description}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-4 justify-between mb-4">
+                            <span className="text-sm text-gray-700">Status: <StatusBadge text={selectedNclexCourse.status} /></span>
+                            <span className="text-sm text-gray-700">Resources: {selectedCourseResources.length}</span>
+                            <span className="text-sm text-gray-700">Questions: {selectedCourseQuestionCount}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-2">
+                            <h5 className="text-sm font-semibold text-gray-800">Resources</h5>
+                            <button
+                                onClick={() => {
+                                    const next = !showNclexResourceForm;
+                                    setShowNclexResourceForm(next);
+                                    setNclexError(null);
+                                    setNclexMessage(null);
+                                    if (next) {
+                                        setNclexResourceForm({ resourceType: 'YOUTUBE', title: '', description: '', url: '', file: null });
+                                    }
+                                }}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-md border border-teal-500 text-teal-600 hover:bg-teal-50"
+                            >
+                                {showNclexResourceForm ? 'Close Resource Form' : 'Add Resource'}
+                            </button>
+                        </div>
+
+                        {selectedCourseResources.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {selectedCourseResources.map((resource) => (
+                                            <tr key={resource.id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    {resource.resourceType}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="text-sm font-medium text-gray-900 max-w-xs truncate">
+                                                        {resource.title}
+                                                    </div>
+                                                    {resource.description && (
+                                                        <div className="text-sm text-gray-500">
+                                                            {resource.description}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                                    <button
+                                                        onClick={() => handleDeleteNclexResource(resource.id)}
+                                                        disabled={approvingId === resource.id}
+                                                        className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-gray-500 text-sm">No resources added for this course yet.</p>
+                        )}
+
+                        {showNclexResourceForm && (
+                            <div className="mt-4 border border-teal-200 rounded-lg bg-white p-4">
+                                <h6 className="text-sm font-semibold text-teal-700 mb-3">New Resource</h6>
+                                <form onSubmit={handleAddNclexResource} className="grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Resource Type</label>
+                                        <select
+                                            value={nclexResourceForm.resourceType}
+                                            onChange={(e) => setNclexResourceForm(prev => ({ ...prev, resourceType: e.target.value as NclexResourceType, url: '', file: null }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        >
+                                            <option value="YOUTUBE">YouTube Video</option>
+                                            <option value="VIDEO_UPLOAD">Upload Video</option>
+                                            <option value="PDF_UPLOAD">Upload PDF</option>
+                                            <option value="ARTICLE">Article / Notes</option>
+                                            <option value="LINK">External Link</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                        <input
+                                            type="text"
+                                            value={nclexResourceForm.title}
+                                            onChange={(e) => setNclexResourceForm(prev => ({ ...prev, title: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            placeholder="Enter resource title"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                        <textarea
+                                            value={nclexResourceForm.description}
+                                            onChange={(e) => setNclexResourceForm(prev => ({ ...prev, description: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 h-24"
+                                            placeholder="Add a short description or summary"
+                                        />
+                                    </div>
+                                    {(nclexResourceForm.resourceType === 'YOUTUBE' || nclexResourceForm.resourceType === 'LINK') && (
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Resource URL</label>
+                                            <input
+                                                type="url"
+                                                value={nclexResourceForm.url}
+                                                onChange={(e) => setNclexResourceForm(prev => ({ ...prev, url: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                placeholder="https://..."
+                                            />
+                                        </div>
+                                    )}
+                                    {(nclexResourceForm.resourceType === 'VIDEO_UPLOAD' || nclexResourceForm.resourceType === 'PDF_UPLOAD') && (
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Upload File</label>
+                                            <input
+                                                type="file"
+                                                accept={nclexResourceForm.resourceType === 'VIDEO_UPLOAD' ? 'video/*' : '.pdf'}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    setNclexResourceForm(prev => ({ ...prev, file }));
+                                                }}
+                                                className="w-full"
+                                            />
+                                            {nclexResourceForm.file && (
+                                                <p className="text-xs text-gray-500 mt-1">Selected: {nclexResourceForm.file.name}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    <div className="md:col-span-2 flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowNclexResourceForm(false);
+                                                setNclexResourceForm({ resourceType: 'YOUTUBE', title: '', description: '', url: '', file: null });
+                                            }}
+                                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={addingNclexResource}
+                                            className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                        >
+                                            {addingNclexResource ? 'Saving...' : 'Save Resource'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+
+                        <div className="mt-6">
+                            <h5 className="text-sm font-semibold text-gray-800 mb-2">Generate Questions</h5>
+                            <form onSubmit={handleGenerateNclexQuestions} className="flex flex-col sm:flex-row gap-3">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
+                                    <input
+                                        type="number"
+                                        value={questionCount}
+                                        onChange={(e) => setQuestionCount(Number(e.target.value))}
+                                        min="1"
+                                        max="100"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    />
+                                </div>
+                                <div className="flex items-end">
+                                    <button
+                                        type="submit"
+                                        disabled={generatingNclexQuestions}
+                                        className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-purple-300"
+                                    >
+                                        {generatingNclexQuestions ? 'Generating...' : 'Generate Questions'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div className="mt-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <h5 className="text-sm font-semibold text-gray-800">Question Bank</h5>
+                                <span className="text-xs text-gray-500">Total {selectedCourseQuestionCount}</span>
+                            </div>
+                            {loadingNclexDetail ? (
+                                <div className="flex justify-center py-6"><Spinner size="sm" color="teal" /></div>
+                            ) : selectedCourseQuestions.length > 0 ? (
+                                <div className="space-y-4">
+                                    {selectedCourseQuestions.map((question, index) => (
+                                        <div key={question.id} className="border border-gray-200 rounded-lg bg-white p-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <p className="text-sm font-semibold text-gray-800">Q{index + 1}. {question.questionText}</p>
+                                                <span className="text-xs font-medium text-indigo-600">{question.source === 'AI' ? 'AI Generated' : 'Manual'}</span>
+                                            </div>
+                                            <ul className="mt-3 space-y-2">
+                                                {question.options?.map((option, optionIndex) => {
+                                                    const labelIndex = typeof option.orderIndex === 'number' ? option.orderIndex : optionIndex;
+                                                    return (
+                                                        <li
+                                                            key={option.id}
+                                                            className={`flex items-center gap-2 text-sm px-3 py-2 rounded-md border ${option.isCorrect ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
+                                                        >
+                                                            <span className="font-medium">{String.fromCharCode(65 + labelIndex)}</span>
+                                                            <span className="flex-1">{option.optionText}</span>
+                                                            {option.isCorrect && <span className="text-xs font-semibold text-emerald-700">Correct</span>}
+                                                        </li>
+                                                    );
+                                                })}
+                                            </ul>
+                                            {question.explanation && (
+                                                <p className="mt-3 text-sm text-gray-700"><span className="font-semibold text-gray-800">Explanation:</span> {question.explanation}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500">No questions generated for this course yet. Use the generator above to create AI-powered practice items.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderContent = () => {
         if (loading) return <div className="flex justify-center mt-8"><Spinner size="lg" color="teal" /></div>;
         if (error) return <p className="text-center text-red-500 mt-4">{error}</p>;
@@ -429,6 +1032,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                     onStatusUpdate={handleFeedbackStatusUpdate}
                     isUpdating={approvingId !== null}
                 />;
+            case 'NCLEX':
+                return renderNclexAdminPanel();
             default:
                 return null;
         }
@@ -445,6 +1050,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 <TabButton title="Blogs" count={pendingBlogs.length} activeTab={activeTab} onClick={() => setActiveTab('BLOGS')} />
                 <TabButton title="Broadcast Messages" count={broadcastMessages.length} activeTab={activeTab} onClick={() => setActiveTab('BROADCAST_MESSAGES')} />
                 <TabButton title="Feedbacks" count={feedbacks.length} activeTab={activeTab} onClick={() => setActiveTab('FEEDBACKS')} />
+                <TabButton title="NCLEX" count={nclexCourses.length} activeTab={activeTab} onClick={() => setActiveTab('NCLEX')} />
             </div>
             {renderContent()}
             
