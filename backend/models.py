@@ -269,6 +269,272 @@ class Resource(db.Model):
             "author": self.author.to_dict() if self.author else None
         }
 
+class NCLEXCourse(db.Model):
+    __tablename__ = 'nclex_courses'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='DRAFT')  # DRAFT, PUBLISHED, ARCHIVED
+    created_by = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    published_at = db.Column(db.TIMESTAMP(timezone=True), nullable=True)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    creator = db.relationship('User', backref='nclex_courses', lazy=True)
+    resources = db.relationship('NCLEXCourseResource', backref='course', lazy=True, cascade="all, delete-orphan", order_by="NCLEXCourseResource.order_index")
+    questions = db.relationship('NCLEXQuestion', backref='course', lazy=True, cascade="all, delete-orphan", order_by="NCLEXQuestion.order_index")
+    enrollments = db.relationship('NCLEXEnrollment', backref='course', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self, include_details=False, include_correct_answers=False, enrollment=None):
+        data = {
+            "id": str(self.id),
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "createdBy": str(self.created_by) if self.created_by else None,
+            "creator": self.creator.to_dict() if self.creator else None,
+            "publishedAt": self.published_at.isoformat() if self.published_at else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            "resourceCount": len(self.resources or []),
+            "questionCount": len(self.questions or [])
+        }
+        if enrollment:
+            data["enrollment"] = enrollment.to_dict(include_resource_progress=True)
+        if include_details:
+            progress_map = {}
+            if enrollment:
+                progress_map = {
+                    str(progress.resource_id): progress
+                    for progress in (enrollment.resource_progress or [])
+                }
+                data["resourceProgress"] = [
+                    progress.to_dict() for progress in (enrollment.resource_progress or [])
+                ]
+            data["resources"] = [
+                resource.to_dict(progress=progress_map.get(str(resource.id)))
+                for resource in (self.resources or [])
+            ]
+            data["questions"] = [
+                question.to_dict(include_correct_answers=include_correct_answers)
+                for question in (self.questions or [])
+            ]
+        return data
+
+    def to_public_dict(self, enrollment=None):
+        return self.to_dict(include_details=True, include_correct_answers=False, enrollment=enrollment)
+
+
+class NCLEXCourseResource(db.Model):
+    __tablename__ = 'nclex_course_resources'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    course_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_courses.id', ondelete='CASCADE'), nullable=False)
+    resource_type = db.Column(db.String(50), nullable=False)  # YOUTUBE, VIDEO_UPLOAD, PDF_UPLOAD, ARTICLE
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    url = db.Column(db.Text, nullable=False)
+    storage_filename = db.Column(db.Text)
+    duration_seconds = db.Column(db.Integer)
+    order_index = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+
+    progress_entries = db.relationship('NCLEXResourceProgress', backref='resource', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self, progress=None):
+        return {
+            "id": str(self.id),
+            "courseId": str(self.course_id),
+            "resourceType": self.resource_type,
+            "title": self.title,
+            "description": self.description,
+            "url": self.url,
+            "storageFilename": self.storage_filename,
+            "durationSeconds": self.duration_seconds,
+            "orderIndex": self.order_index,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "progressStatus": progress.status if progress else None,
+            "completedAt": progress.completed_at.isoformat() if progress and progress.completed_at else None
+        }
+
+
+class NCLEXResourceProgress(db.Model):
+    __tablename__ = 'nclex_resource_progress'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    enrollment_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_enrollments.id', ondelete='CASCADE'), nullable=False)
+    resource_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_course_resources.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='PENDING')
+    completed_at = db.Column(db.TIMESTAMP(timezone=True), nullable=True)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint('enrollment_id', 'resource_id', name='uq_enrollment_resource_progress'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "enrollmentId": str(self.enrollment_id),
+            "resourceId": str(self.resource_id),
+            "status": self.status,
+            "completedAt": self.completed_at.isoformat() if self.completed_at else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class NCLEXQuestion(db.Model):
+    __tablename__ = 'nclex_questions'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    course_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_courses.id', ondelete='CASCADE'), nullable=False)
+    question_text = db.Column(db.Text, nullable=False)
+    explanation = db.Column(db.Text, nullable=True)
+    source = db.Column(db.String(50), nullable=False, default='AI')  # AI or MANUAL
+    order_index = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    options = db.relationship('NCLEXQuestionOption', backref='question', lazy=True, cascade="all, delete-orphan", order_by="NCLEXQuestionOption.order_index")
+
+    def to_dict(self, include_correct_answers=False):
+        return {
+            "id": str(self.id),
+            "courseId": str(self.course_id),
+            "questionText": self.question_text,
+            "explanation": self.explanation,
+            "source": self.source,
+            "orderIndex": self.order_index,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            "options": [
+                option.to_dict(include_correct_answers=include_correct_answers)
+                for option in (self.options or [])
+            ]
+        }
+
+    def to_exam_dict(self):
+        return self.to_dict(include_correct_answers=False)
+
+
+class NCLEXQuestionOption(db.Model):
+    __tablename__ = 'nclex_question_options'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    question_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_questions.id', ondelete='CASCADE'), nullable=False)
+    option_text = db.Column(db.Text, nullable=False)
+    is_correct = db.Column(db.Boolean, nullable=False, default=False)
+    feedback = db.Column(db.Text)
+    order_index = db.Column(db.Integer, nullable=False, default=0)
+
+    def to_dict(self, include_correct_answers=False):
+        data = {
+            "id": str(self.id),
+            "questionId": str(self.question_id),
+            "optionText": self.option_text,
+            "orderIndex": self.order_index,
+        }
+        if include_correct_answers:
+            data["isCorrect"] = self.is_correct
+            data["feedback"] = self.feedback
+        return data
+
+
+class NCLEXEnrollment(db.Model):
+    __tablename__ = 'nclex_enrollments'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    course_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_courses.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    status = db.Column(db.String(50), nullable=False, default='ENROLLED')  # ENROLLED, COMPLETED
+    progress_percent = db.Column(db.Float, nullable=False, default=0.0)
+    latest_score_percent = db.Column(db.Float, nullable=True)
+    attempt_count = db.Column(db.Integer, nullable=False, default=0)
+    started_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    completed_at = db.Column(db.TIMESTAMP(timezone=True), nullable=True)
+
+    user = db.relationship('User', backref='nclex_enrollments', lazy=True)
+    attempts = db.relationship('NCLEXAttempt', backref='enrollment', lazy=True, cascade="all, delete-orphan", order_by="desc(NCLEXAttempt.submitted_at)")
+    resource_progress = db.relationship('NCLEXResourceProgress', backref='enrollment', lazy=True, cascade="all, delete-orphan")
+
+    __table_args__ = (
+        db.UniqueConstraint('course_id', 'user_id', name='uq_course_user_enrollment'),
+    )
+
+    def to_dict(self, include_attempts=False, include_resource_progress=False):
+        data = {
+            "id": str(self.id),
+            "courseId": str(self.course_id),
+            "userId": str(self.user_id),
+            "status": self.status,
+            "progressPercent": float(self.progress_percent or 0.0),
+            "latestScorePercent": float(self.latest_score_percent) if self.latest_score_percent is not None else None,
+            "attemptCount": self.attempt_count,
+            "startedAt": self.started_at.isoformat() if self.started_at else None,
+            "completedAt": self.completed_at.isoformat() if self.completed_at else None
+        }
+        if include_attempts:
+            data["attempts"] = [attempt.to_dict(include_answers=True) for attempt in (self.attempts or [])]
+        if include_resource_progress:
+            data["resourceProgress"] = [
+                progress.to_dict() for progress in (self.resource_progress or [])
+            ]
+        return data
+
+
+class NCLEXAttempt(db.Model):
+    __tablename__ = 'nclex_attempts'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    enrollment_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_enrollments.id', ondelete='CASCADE'), nullable=False)
+    score_percent = db.Column(db.Float, nullable=False, default=0.0)
+    total_questions = db.Column(db.Integer, nullable=False, default=0)
+    correct_answers = db.Column(db.Integer, nullable=False, default=0)
+    submitted_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+
+    answers = db.relationship('NCLEXAttemptAnswer', backref='attempt', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self, include_answers=False):
+        data = {
+            "id": str(self.id),
+            "enrollmentId": str(self.enrollment_id),
+            "scorePercent": float(self.score_percent or 0.0),
+            "totalQuestions": self.total_questions,
+            "correctAnswers": self.correct_answers,
+            "submittedAt": self.submitted_at.isoformat() if self.submitted_at else None
+        }
+        if include_answers:
+            data["answers"] = [answer.to_dict() for answer in (self.answers or [])]
+        return data
+
+
+class NCLEXAttemptAnswer(db.Model):
+    __tablename__ = 'nclex_attempt_answers'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    attempt_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_attempts.id', ondelete='CASCADE'), nullable=False)
+    question_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_questions.id', ondelete='CASCADE'), nullable=False)
+    selected_option_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_question_options.id', ondelete='SET NULL'), nullable=True)
+    correct_option_id = db.Column(db.CHAR(36), db.ForeignKey('nclex_question_options.id', ondelete='SET NULL'), nullable=True)
+    is_correct = db.Column(db.Boolean, nullable=False, default=False)
+    explanation = db.Column(db.Text)
+
+    question = db.relationship('NCLEXQuestion', lazy=True)
+    selected_option = db.relationship('NCLEXQuestionOption', foreign_keys=[selected_option_id], lazy=True)
+    correct_option = db.relationship('NCLEXQuestionOption', foreign_keys=[correct_option_id], lazy=True)
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "attemptId": str(self.attempt_id),
+            "questionId": str(self.question_id),
+            "selectedOptionId": str(self.selected_option_id) if self.selected_option_id else None,
+            "correctOptionId": str(self.correct_option_id) if self.correct_option_id else None,
+            "isCorrect": self.is_correct,
+            "explanation": self.explanation,
+            "questionText": self.question.question_text if self.question else None,
+            "options": [
+                option.to_dict(include_correct_answers=True)
+                for option in (self.question.options if self.question else [])
+            ]
+        }
+
+
 class Blog(db.Model):
     __tablename__ = 'blogs'
     id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)

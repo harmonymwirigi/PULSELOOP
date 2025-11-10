@@ -138,6 +138,7 @@ backend/uploads/posts/*
 backend/uploads/resources/*
 backend/uploads/media/*
 backend/uploads/broadcasts/*
+backend/uploads/nclex/*
 !backend/uploads/avatars/.gitkeep
 !backend/uploads/blogs/.gitkeep
 !backend/uploads/posts/.gitkeep
