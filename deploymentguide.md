@@ -32,13 +32,18 @@ Next, pull the latest version of your code from your GitHub repository.
 # Navigate to the root project directory
 cd /var/www/pulseloop
 
+# Fetch the latest changes from the remote repository
+git fetch origin
+
 # This command discards any accidental changes made on the server and
 # ensures your local server copy is identical to what's on GitHub.
+# This is especially important after force pushes.
 git reset --hard origin/main
 
-# This command downloads the latest code you pushed from your local machine.
-git pull origin main```
-**Purpose:** To synchronize the server's code with your final, tested version from your Git repository. The `reset --hard` command is a safety measure to prevent merge conflicts from accidental server-side edits.
+# For normal updates (when no force push occurred), you can also use:
+# git pull origin main
+```
+**Purpose:** To synchronize the server's code with your final, tested version from your Git repository. The `reset --hard` command is a safety measure to prevent merge conflicts from accidental server-side edits. Using `git fetch` followed by `git reset --hard origin/main` ensures you get the latest code even after force pushes. For regular updates without force pushes, `git pull origin main` works perfectly fine.
 
 ---
 
