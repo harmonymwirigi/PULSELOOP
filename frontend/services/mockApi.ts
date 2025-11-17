@@ -541,6 +541,13 @@ export const updateNclexCourse = async (courseId: string, payload: UpdateNclexCo
     return normalizeNclexCourse(course)!;
 };
 
+export const deleteNclexCourse = async (courseId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
 export const getNclexCourses = async (includeDetails: boolean = false): Promise<NclexCourse[]> => {
     const response = await fetchWithAuth(`/nclex/courses?includeDetails=${includeDetails ? 1 : 0}`);
     const courses: NclexCourse[] = await handleApiResponse(response);
@@ -626,6 +633,49 @@ export const generateNclexQuestions = async (courseId: string, payload: Generate
     return handleApiResponse(response);
 };
 
+export interface CreateNclexQuestionPayload {
+    questionText: string;
+    explanation?: string;
+    options: Array<{
+        optionText: string;
+        isCorrect: boolean;
+        feedback?: string;
+    }>;
+}
+
+export interface UpdateNclexQuestionPayload {
+    questionText?: string;
+    explanation?: string;
+    options?: Array<{
+        optionText: string;
+        isCorrect: boolean;
+        feedback?: string;
+    }>;
+}
+
+export const createNclexQuestion = async (courseId: string, payload: CreateNclexQuestionPayload): Promise<NclexQuestion> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/questions`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+};
+
+export const updateNclexQuestion = async (courseId: string, questionId: string, payload: UpdateNclexQuestionPayload): Promise<NclexQuestion> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/questions/${questionId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+    });
+    return handleApiResponse(response);
+};
+
+export const deleteNclexQuestion = async (courseId: string, questionId: string): Promise<{ message: string }> => {
+    const response = await fetchWithAuth(`/nclex/courses/${courseId}/questions/${questionId}`, {
+        method: 'DELETE',
+    });
+    return handleApiResponse(response);
+};
+
 export const subscribeToNclexCourse = async (courseId: string): Promise<NclexEnrollment> => {
     const response = await fetchWithAuth(`/nclex/courses/${courseId}/subscribe`, {
         method: 'POST',
@@ -688,6 +738,21 @@ export const getPublicBlogs = async (): Promise<Blog[]> => {
         author: {
             ...blog.author,
             avatarUrl: getAbsoluteUrl(blog.author.avatarUrl)
+        }
+    }));
+};
+
+export const getPublicResources = async (): Promise<Resource[]> => {
+    const response = await fetch(`${API_BASE_URL}/public/resources`);
+    const resources = await handleApiResponse(response);
+    
+    // Convert relative URLs to absolute URLs for resource file URLs and avatars
+    return resources.map((resource: Resource) => ({
+        ...resource,
+        file_url: resource.file_url ? getAbsoluteUrl(resource.file_url) : resource.file_url,
+        author: {
+            ...resource.author,
+            avatarUrl: getAbsoluteUrl(resource.author.avatarUrl)
         }
     }));
 };

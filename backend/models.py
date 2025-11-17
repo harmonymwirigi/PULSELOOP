@@ -472,6 +472,9 @@ class NCLEXEnrollment(db.Model):
         }
         if include_attempts:
             data["attempts"] = [attempt.to_dict(include_answers=True) for attempt in (self.attempts or [])]
+        # Include latest attempt if it was set (for course detail view)
+        if hasattr(self, '_latest_attempt') and self._latest_attempt:
+            data["latestAttempt"] = self._latest_attempt.to_dict(include_answers=True)
         if include_resource_progress:
             data["resourceProgress"] = [
                 progress.to_dict() for progress in (self.resource_progress or [])

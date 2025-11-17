@@ -42,6 +42,7 @@ const NclexCoursesView: React.FC = () => {
     const [loadingDetail, setLoadingDetail] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [examMode, setExamMode] = React.useState(false);
+    const [reviewMode, setReviewMode] = React.useState(false);
     const [answers, setAnswers] = React.useState<Record<string, string>>({});
     const [attemptResult, setAttemptResult] = React.useState<SubmitNclexAttemptResponse | null>(null);
     const [subscribing, setSubscribing] = React.useState(false);
@@ -76,7 +77,15 @@ const NclexCoursesView: React.FC = () => {
             if (!preserveAnswers) {
                 setExamMode(false);
                 setAnswers({});
-                setAttemptResult(null);
+                // Load latest attempt if it exists in enrollment
+                if (detail.enrollment?.latestAttempt) {
+                    setAttemptResult({
+                        attempt: detail.enrollment.latestAttempt,
+                        enrollment: detail.enrollment
+                    });
+                } else {
+                    setAttemptResult(null);
+                }
             }
         } catch (err: any) {
             setError(err?.message || 'Failed to load course details.');
@@ -320,6 +329,7 @@ const NclexCoursesView: React.FC = () => {
         }
         setError(null);
         setAttemptResult(null);
+        setReviewMode(false);
         setExamMode(true);
         const initial: Record<string, string> = {};
         selectedCourse.questions.forEach(question => {
@@ -354,6 +364,7 @@ const NclexCoursesView: React.FC = () => {
             const result = await submitNclexAttempt(selectedCourse.id, payload);
             setAttemptResult(result);
             setExamMode(false);
+            setReviewMode(false);
             setAnswers({});
             await loadCourseDetail(selectedCourse.id, true);
         } catch (err: any) {
@@ -423,7 +434,6 @@ const NclexCoursesView: React.FC = () => {
                                             {course.status}
                                         </span>
                                     </div>
-                                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{course.description}</p>
                                     <div className="flex items-center gap-4 mt-3 text-xs text-gray-500">
                                         <span>Resources: {course.resourceCount ?? (course.resources?.length || 0)}</span>
                                         <span>Questions: {course.questionCount ?? (course.questions?.length || 0)}</span>
@@ -443,7 +453,9 @@ const NclexCoursesView: React.FC = () => {
                             <div className="flex items-start justify-between gap-4">
                                 <div>
                                     <h3 className="text-2xl font-bold text-gray-800">{selectedCourse.title}</h3>
-                                    <p className="text-gray-600 mt-2 whitespace-pre-line">{selectedCourse.description}</p>
+                                    {selectedEnrollment && (
+                                        <p className="text-gray-600 mt-2 whitespace-pre-line">{selectedCourse.description}</p>
+                                    )}
                                 </div>
                                 <div className="text-right">
                                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
@@ -473,19 +485,23 @@ const NclexCoursesView: React.FC = () => {
                                         <p>Attempts: {selectedEnrollment.attemptCount}</p>
                                     </div>
                                 ) : (
-                                    <div className="mt-2 flex items-center justify-between">
+                                    <div className="mt-2 space-y-3">
                                         <p className="text-sm text-gray-600">You are not enrolled in this course yet.</p>
-                                        <button
-                                            onClick={handleSubscribe}
-                                            disabled={subscribing || selectedCourse.status !== 'PUBLISHED'}
-                                            className="px-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                        >
-                                            {subscribing ? 'Subscribing...' : 'Subscribe'}
-                                        </button>
+                                        <p className="text-sm text-gray-700 whitespace-pre-line">{selectedCourse.description}</p>
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={handleSubscribe}
+                                                disabled={subscribing || selectedCourse.status !== 'PUBLISHED'}
+                                                className="px-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                            >
+                                                {subscribing ? 'Subscribing...' : 'Subscribe'}
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                             </div>
 
+                            {selectedEnrollment && (
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <h4 className="text-lg font-semibold text-gray-800">Course Resources</h4>
@@ -587,28 +603,40 @@ const NclexCoursesView: React.FC = () => {
                                     <p className="text-sm text-gray-500">No resources have been added yet.</p>
                                 )}
                             </div>
+                            )}
 
+                            {selectedEnrollment && (
                             <div>
                                 <div className="flex items-center justify-between mb-3">
                                     <h4 className="text-lg font-semibold text-gray-800">Course Exam</h4>
-                                    {selectedEnrollment && selectedCourse.questions && selectedCourse.questions.length > 0 && (
+                                    {selectedCourse.questions && selectedCourse.questions.length > 0 && (
                                         <div className="flex items-center space-x-2">
-                                            {!examMode ? (
-                                                <button
-                                                    onClick={handleStartExam}
-                                                    disabled={!allResourcesCompleted}
-                                                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                                                        allResourcesCompleted
-                                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                                    }`}
-                                                >
-                                                    Start Exam
-                                                </button>
+                                            {!examMode && !reviewMode ? (
+                                                selectedEnrollment.attemptCount > 0 ? (
+                                                    <button
+                                                        onClick={() => setReviewMode(true)}
+                                                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                                                    >
+                                                        Review Exam
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={handleStartExam}
+                                                        disabled={!allResourcesCompleted}
+                                                        className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                                                            allResourcesCompleted
+                                                                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                                                : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                                                        }`}
+                                                    >
+                                                        Start Exam
+                                                    </button>
+                                                )
                                             ) : (
                                                 <button
                                                     onClick={() => {
                                                         setExamMode(false);
+                                                        setReviewMode(false);
                                                         setAnswers({});
                                                         setError(null);
                                                     }}
@@ -620,18 +648,15 @@ const NclexCoursesView: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                {!selectedEnrollment && (
-                                    <p className="text-sm text-gray-500">Subscribe to this course to take the NCLEX practice exam.</p>
-                                )}
-                                {selectedEnrollment && !allResourcesCompleted && selectedCourse.resources && selectedCourse.resources.length > 0 && (
+                                {!allResourcesCompleted && selectedCourse.resources && selectedCourse.resources.length > 0 && (
                                     <p className="text-sm text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                                         Complete all course resources before attempting the exam.
                                     </p>
                                 )}
-                                {selectedEnrollment && selectedCourse.questions && selectedCourse.questions.length === 0 && (
+                                {selectedCourse.questions && selectedCourse.questions.length === 0 && (
                                     <p className="text-sm text-gray-500">Questions for this course are not available yet.</p>
                                 )}
-                                {selectedEnrollment && attemptResult && !examMode && (
+                                {attemptResult && !examMode && !reviewMode && (
                                     <div className="border border-teal-200 rounded-xl p-4 bg-teal-50">
                                         <h5 className="font-semibold text-teal-700">Latest Attempt</h5>
                                         <p className="text-sm text-teal-600 mt-2">
@@ -641,19 +666,14 @@ const NclexCoursesView: React.FC = () => {
                                             Submitted on {new Date(attemptResult.attempt.submittedAt).toLocaleString()}
                                         </p>
                                         <button
-                                            onClick={handleStartExam}
-                                            disabled={!allResourcesCompleted}
-                                            className={`mt-3 px-4 py-2 rounded-lg font-semibold transition-colors ${
-                                                allResourcesCompleted
-                                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                                    : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                            }`}
+                                            onClick={() => setReviewMode(true)}
+                                            className="mt-3 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
                                         >
-                                            Retake Exam
+                                            Review Exam
                                         </button>
                                     </div>
                                 )}
-                                {selectedEnrollment && examMode && selectedCourse.questions && (
+                                {examMode && selectedCourse.questions && (
                                     <div className="border border-gray-200 rounded-xl p-4 space-y-6">
                                         {selectedCourse.questions.map((question, index) => (
                                             <div key={question.id} className="space-y-3">
@@ -698,7 +718,96 @@ const NclexCoursesView: React.FC = () => {
                                         </div>
                                     </div>
                                 )}
+                                {reviewMode && attemptResult && attemptResult.attempt.answers && (
+                                    <div className="border border-gray-200 rounded-xl p-4 space-y-6">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h5 className="text-lg font-semibold text-gray-800">Exam Review</h5>
+                                            <button
+                                                onClick={() => setReviewMode(false)}
+                                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300"
+                                            >
+                                                Close Review
+                                            </button>
+                                        </div>
+                                        {attemptResult.attempt.answers.map((answer, index) => {
+                                            const isCorrect = answer.isCorrect;
+                                            const selectedOptionId = answer.selectedOptionId;
+                                            const correctOptionId = answer.correctOptionId;
+                                            
+                                            return (
+                                                <div key={answer.id} className={`border rounded-xl p-4 ${isCorrect ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <p className="font-semibold text-gray-800">
+                                                            {index + 1}. {answer.questionText}
+                                                        </p>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                                            isCorrect 
+                                                                ? 'bg-emerald-500 text-white' 
+                                                                : 'bg-red-500 text-white'
+                                                        }`}>
+                                                            {isCorrect ? 'Correct' : 'Incorrect'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-2 mt-3">
+                                                        {answer.options?.map(option => {
+                                                            const isSelected = option.id === selectedOptionId;
+                                                            const isCorrectAnswer = option.id === correctOptionId;
+                                                            
+                                                            let borderColor = 'border-gray-200';
+                                                            let bgColor = 'bg-white';
+                                                            let textColor = 'text-gray-700';
+                                                            
+                                                            if (isCorrectAnswer) {
+                                                                borderColor = 'border-emerald-500';
+                                                                bgColor = 'bg-emerald-100';
+                                                                textColor = 'text-emerald-800';
+                                                            } else if (isSelected && !isCorrect) {
+                                                                borderColor = 'border-red-500';
+                                                                bgColor = 'bg-red-100';
+                                                                textColor = 'text-red-800';
+                                                            }
+                                                            
+                                                            return (
+                                                                <div
+                                                                    key={option.id}
+                                                                    className={`flex items-center space-x-3 border rounded-lg px-3 py-2 ${borderColor} ${bgColor}`}
+                                                                >
+                                                                    <div className="flex items-center space-x-2 flex-1">
+                                                                        {isCorrectAnswer && (
+                                                                            <span className="text-emerald-600 font-bold">✓</span>
+                                                                        )}
+                                                                        {isSelected && !isCorrect && (
+                                                                            <span className="text-red-600 font-bold">✗</span>
+                                                                        )}
+                                                                        <span className={`text-sm ${textColor}`}>{option.optionText}</span>
+                                                                    </div>
+                                                                    {isCorrectAnswer && (
+                                                                        <span className="text-xs font-semibold text-emerald-700 px-2 py-1 bg-emerald-200 rounded">
+                                                                            Correct Answer
+                                                                        </span>
+                                                                    )}
+                                                                    {isSelected && !isCorrectAnswer && (
+                                                                        <span className="text-xs font-semibold text-red-700 px-2 py-1 bg-red-200 rounded">
+                                                                            Your Answer
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {answer.explanation && (
+                                                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                            <p className="text-sm font-semibold text-blue-800 mb-1">Explanation:</p>
+                                                            <p className="text-sm text-blue-700">{answer.explanation}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
+                            )}
                         </div>
                     ) : (
                         <p className="text-sm text-gray-500">Select a course to see details.</p>
