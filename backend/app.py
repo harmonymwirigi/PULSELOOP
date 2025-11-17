@@ -3,6 +3,7 @@ import uuid
 import secrets
 import smtplib
 import json
+import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from functools import wraps
@@ -2498,6 +2499,15 @@ def get_nclex_course(course_id):
             _recalculate_enrollment_progress(enrollment)
 
     include_correct = user.role == 'ADMIN'
+    # Include latest attempt in enrollment if attempts exist
+    if enrollment and enrollment.attempt_count > 0:
+        # Get the latest attempt
+        latest_attempt = NCLEXAttempt.query.filter_by(
+            enrollment_id=enrollment.id
+        ).order_by(desc(NCLEXAttempt.submitted_at)).first()
+        if latest_attempt:
+            # Temporarily add latest attempt to enrollment for serialization
+            enrollment._latest_attempt = latest_attempt
     return jsonify(course.to_dict(
         include_details=True,
         include_correct_answers=include_correct,
@@ -2533,6 +2543,25 @@ def update_nclex_course(course_id):
 
     db.session.commit()
     return jsonify(course.to_dict(include_details=True, include_correct_answers=True)), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>', methods=['DELETE'])
+@role_required(['ADMIN'])
+def delete_nclex_course(course_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    # Delete all uploaded files for resources
+    for resource in course.resources or []:
+        if resource.storage_filename:
+            cleanup_storage_file(resource.storage_filename, 'nclex')
+
+    # Delete the course (cascade will handle related records: resources, questions, enrollments, attempts, etc.)
+    db.session.delete(course)
+    db.session.commit()
+
+    return jsonify({"message": "Course deleted successfully"}), 200
 
 
 @app.route('/api/nclex/courses/<uuid:course_id>/resources', methods=['POST'])
@@ -2718,6 +2747,9 @@ def generate_nclex_questions(course_id):
         if not question_text or not options_payload:
             continue
 
+        # Randomize the order of options so the correct answer appears in different positions
+        random.shuffle(options_payload)
+
         question = NCLEXQuestion(
             course_id=course.id,
             question_text=question_text,
@@ -2751,6 +2783,148 @@ def generate_nclex_questions(course_id):
         question.to_dict(include_correct_answers=True)
         for question in created_questions
     ]), 201
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/questions', methods=['POST'])
+@role_required(['ADMIN'])
+def create_nclex_question(course_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    data = request.get_json() or {}
+    question_text = (data.get('questionText') or data.get('question') or '').strip()
+    explanation = (data.get('explanation') or '').strip()
+    options = data.get('options') or []
+
+    if not question_text:
+        return jsonify({"error": "Question text is required"}), 400
+    if not options or len(options) < 2:
+        return jsonify({"error": "At least 2 options are required"}), 400
+
+    # Validate that exactly one option is correct
+    correct_count = sum(1 for opt in options if opt.get('isCorrect', False))
+    if correct_count != 1:
+        return jsonify({"error": "Exactly one option must be marked as correct"}), 400
+
+    # Randomize option order
+    random.shuffle(options)
+
+    question = NCLEXQuestion(
+        course_id=course.id,
+        question_text=question_text,
+        explanation=explanation,
+        source='MANUAL',
+        order_index=_get_next_question_order(course)
+    )
+    db.session.add(question)
+    db.session.flush()
+
+    for option_index, option_data in enumerate(options):
+        option_text = (option_data.get('optionText') or option_data.get('text') or '').strip()
+        if not option_text:
+            continue
+        is_correct = bool(option_data.get('isCorrect', False))
+        feedback = option_data.get('feedback') or None
+        option = NCLEXQuestionOption(
+            question_id=question.id,
+            option_text=option_text,
+            is_correct=is_correct,
+            feedback=feedback,
+            order_index=option_index + 1
+        )
+        db.session.add(option)
+
+    db.session.commit()
+    return jsonify(question.to_dict(include_correct_answers=True)), 201
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/questions/<uuid:question_id>', methods=['PUT'])
+@role_required(['ADMIN'])
+def update_nclex_question(course_id, question_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    question = NCLEXQuestion.query.filter_by(
+        id=str(question_id),
+        course_id=str(course_id)
+    ).first()
+    if not question:
+        return jsonify({"error": "Question not found"}), 404
+
+    data = request.get_json() or {}
+    question_text = data.get('questionText') or data.get('question')
+    explanation = data.get('explanation')
+    options = data.get('options')
+
+    if question_text is not None:
+        question_text = question_text.strip()
+        if not question_text:
+            return jsonify({"error": "Question text cannot be empty"}), 400
+        question.question_text = question_text
+
+    if explanation is not None:
+        question.explanation = explanation.strip()
+
+    if options is not None:
+        if len(options) < 2:
+            return jsonify({"error": "At least 2 options are required"}), 400
+
+        # Validate that exactly one option is correct
+        correct_count = sum(1 for opt in options if opt.get('isCorrect', False))
+        if correct_count != 1:
+            return jsonify({"error": "Exactly one option must be marked as correct"}), 400
+
+        # Delete existing options
+        for existing_option in question.options or []:
+            db.session.delete(existing_option)
+
+        # Randomize option order
+        random.shuffle(options)
+
+        # Create new options
+        for option_index, option_data in enumerate(options):
+            option_text = (option_data.get('optionText') or option_data.get('text') or '').strip()
+            if not option_text:
+                continue
+            is_correct = bool(option_data.get('isCorrect', False))
+            feedback = option_data.get('feedback') or None
+            option = NCLEXQuestionOption(
+                question_id=question.id,
+                option_text=option_text,
+                is_correct=is_correct,
+                feedback=feedback,
+                order_index=option_index + 1
+            )
+            db.session.add(option)
+
+    db.session.commit()
+    return jsonify(question.to_dict(include_correct_answers=True)), 200
+
+
+@app.route('/api/nclex/courses/<uuid:course_id>/questions/<uuid:question_id>', methods=['DELETE'])
+@role_required(['ADMIN'])
+def delete_nclex_question(course_id, question_id):
+    course = get_course_by_id(str(course_id))
+    if not course:
+        return jsonify({"error": "Course not found"}), 404
+
+    question = NCLEXQuestion.query.filter_by(
+        id=str(question_id),
+        course_id=str(course_id)
+    ).first()
+    if not question:
+        return jsonify({"error": "Question not found"}), 404
+
+    # Delete options (cascade should handle this, but being explicit)
+    for option in question.options or []:
+        db.session.delete(option)
+
+    db.session.delete(question)
+    db.session.commit()
+
+    return jsonify({"message": "Question deleted successfully"}), 200
 
 
 @app.route('/api/nclex/courses/<uuid:course_id>/subscribe', methods=['POST'])
@@ -2889,6 +3063,12 @@ def get_public_blogs():
     """Public endpoint to get approved blogs without authentication"""
     blogs = Blog.query.filter_by(status='APPROVED').order_by(Blog.created_at.desc()).all()
     return jsonify([blog.to_dict() for blog in blogs]), 200
+
+@app.route('/api/public/resources', methods=['GET'])
+def get_public_resources():
+    """Public endpoint to get approved resources without authentication"""
+    resources = Resource.query.filter_by(status='APPROVED').order_by(Resource.created_at.desc()).all()
+    return jsonify([resource.to_dict() for resource in resources]), 200
 
 @app.route('/api/blogs/<uuid:blog_id>', methods=['GET'])
 @authenticated_only

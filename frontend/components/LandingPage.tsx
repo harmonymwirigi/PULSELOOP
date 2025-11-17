@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AuthModal from './AuthModal';
 import PrivacyPolicy from './PrivacyPolicy';
 import Logo from './Logo';
-import { getPublicBlogs, getPublicFeedbacks, getActiveBroadcastMessage, getAbsoluteUrl } from '../services/mockApi';
-import { Blog, Feedback, BroadcastMessage } from '../types';
+import { getPublicBlogs, getPublicResources, getPublicFeedbacks, getActiveBroadcastMessage, getAbsoluteUrl } from '../services/mockApi';
+import { Blog, Resource, Feedback, BroadcastMessage } from '../types';
 
 // Fallback testimonials in case no feedback is available
 const fallbackTestimonials = [
@@ -54,10 +54,14 @@ const LandingPage: React.FC = () => {
     const [currentHeroMessage, setCurrentHeroMessage] = useState(0);
     const [showPolicy, setShowPolicy] = useState(false);
     const [showBlogs, setShowBlogs] = useState(false);
+    const [showResources, setShowResources] = useState(false);
     const [showAbout, setShowAbout] = useState(false);
     const [blogs, setBlogs] = useState<Blog[]>([]);
     const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
     const [blogsLoading, setBlogsLoading] = useState(false);
+    const [resources, setResources] = useState<Resource[]>([]);
+    const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
+    const [resourcesLoading, setResourcesLoading] = useState(false);
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [feedbacksLoading, setFeedbacksLoading] = useState(false);
     const [broadcastMessage, setBroadcastMessage] = useState<BroadcastMessage | null>(null);
@@ -86,6 +90,18 @@ const LandingPage: React.FC = () => {
         }
     }, []);
 
+    const fetchResources = useCallback(async () => {
+        try {
+            setResourcesLoading(true);
+            const fetchedResources = await getPublicResources();
+            setResources(fetchedResources);
+        } catch (err) {
+            console.error('Failed to fetch resources:', err);
+        } finally {
+            setResourcesLoading(false);
+        }
+    }, []);
+
     const fetchFeedbacks = useCallback(async () => {
         try {
             setFeedbacksLoading(true);
@@ -110,20 +126,38 @@ const LandingPage: React.FC = () => {
         }
     }, []);
 
+    const handleShowResources = () => {
+        setShowAbout(false);
+        setShowBlogs(false);
+        setShowResources(true);
+        fetchResources();
+    };
+
     const handleShowBlogs = () => {
         setShowAbout(false);
+        setShowResources(false);
         setShowBlogs(true);
         fetchBlogs();
     };
 
     const handleShowAbout = () => {
         setShowBlogs(false);
+        setShowResources(false);
         setSelectedBlog(null);
+        setSelectedResource(null);
         setShowAbout(true);
+    };
+
+    const handleResourceClick = (resource: Resource) => {
+        setSelectedResource(resource);
     };
 
     const handleBlogClick = (blog: Blog) => {
         setSelectedBlog(blog);
+    };
+
+    const handleBackToResources = () => {
+        setSelectedResource(null);
     };
 
     const handleBackToBlogs = () => {
@@ -132,7 +166,9 @@ const LandingPage: React.FC = () => {
 
     const handleBackToLanding = () => {
         setShowBlogs(false);
+        setShowResources(false);
         setSelectedBlog(null);
+        setSelectedResource(null);
         setShowAbout(false);
     };
 
@@ -195,6 +231,13 @@ const LandingPage: React.FC = () => {
                 onViewPolicy={viewPolicy}
             />
         );
+    }
+
+    if (showResources) {
+        if (selectedResource) {
+            return <PublicSingleResourceView resource={selectedResource} onBack={handleBackToResources} onOpenModal={openModal} onShowResources={handleShowResources} />;
+        }
+        return <PublicResourcesView resources={resources} loading={resourcesLoading} onResourceClick={handleResourceClick} onBack={handleBackToLanding} onOpenModal={openModal} onShowResources={handleShowResources} />;
     }
 
     if (showBlogs) {
@@ -305,7 +348,13 @@ const LandingPage: React.FC = () => {
 
                         {/* Call to Action Buttons */}
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-12 px-4">
-                            <button onClick={() => setShowBlogs(true)} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-full hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                            <button onClick={handleShowResources} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-bold rounded-full hover:from-blue-600 hover:to-cyan-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
+                                Resources
+                            </button>
+                            <button onClick={handleShowBlogs} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-full hover:from-indigo-600 hover:to-purple-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                                 </svg>
@@ -727,14 +776,6 @@ const PublicBlogsView: React.FC<{ blogs: Blog[], loading: boolean, onBlogClick: 
                                 <Logo textColorClassName="text-teal-600" />
                             </button>
                         </div>
-                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                            <button 
-                                onClick={onShowBlogs}
-                                className="px-4 sm:px-6 py-2 bg-indigo-500 text-white rounded-full hover:bg-indigo-600 transition-colors font-medium text-sm sm:text-base"
-                            >
-                                Blogs
-                            </button>
-                        </div>
                     </div>
                 </div>
             </header>
@@ -1041,6 +1082,251 @@ const AboutSection: React.FC<{ onBack: () => void; onOpenSignup: () => void; onV
             <footer className="py-8 text-center text-sm text-gray-500 border-t border-teal-100 bg-white/60 backdrop-blur">
                 <p>&copy; {new Date().getFullYear()} PulseLoopCare. All rights reserved.</p>
             </footer>
+        </div>
+    );
+};
+
+const PublicResourcesView: React.FC<{ resources: Resource[], loading: boolean, onResourceClick: (resource: Resource) => void, onBack: () => void, onOpenModal: (mode: 'login' | 'signup', token?: string | null) => void, onShowResources: () => void }> = ({ resources, loading, onResourceClick, onBack, onOpenModal, onShowResources }) => {
+    const stripHtml = (html: string | undefined): string => {
+        if (!html) return '';
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        return doc.body.textContent || "";
+    };
+
+    const formatDate = (dateString: string | undefined | null): string => {
+        if (!dateString) return 'Date not available';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (error) {
+            return 'Date not available';
+        }
+    };
+
+    const ResourceIcon: React.FC<{ type: string }> = ({ type }) => {
+        const iconWrapperClasses = "w-12 h-12 rounded-lg flex items-center justify-center mb-4";
+        const iconClasses = "w-6 h-6 text-white";
+
+        if (type === 'LINK' || type === 'Link') {
+            return (
+                <div className={`${iconWrapperClasses} bg-blue-500`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                </div>
+            );
+        }
+        
+        return (
+            <div className={`${iconWrapperClasses} bg-green-500`}>
+                 <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+        );
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="container mx-auto px-4 py-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center">
+                            <button 
+                                onClick={onBack}
+                                className="mr-4 p-2 text-gray-600 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                            </button>
+                            <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+                                <Logo textColorClassName="text-teal-600" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="container mx-auto px-4 py-12">
+                <div className="text-center mb-12">
+                    <h1 className="text-4xl font-bold text-gray-800 mb-4">Knowledge Library</h1>
+                    <p className="text-gray-600 text-lg max-w-2xl mx-auto">Shared resources, files, and links from healthcare professionals around the world</p>
+                </div>
+
+                {loading ? (
+                    <div className="flex justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-500"></div>
+                    </div>
+                ) : resources.length === 0 ? (
+                    <div className="text-center py-12">
+                        <p className="text-gray-500 text-lg">No resources available at the moment.</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {resources.map(resource => {
+                            const plainTextDescription = stripHtml(resource.description);
+                            const previewDescription = plainTextDescription.substring(0, 150);
+                            
+                            return (
+                                <div 
+                                    key={resource.id}
+                                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer group p-6"
+                                    onClick={() => onResourceClick(resource)}
+                                >
+                                    <div className="flex justify-center mb-4">
+                                        <ResourceIcon type={resource.type} />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-teal-600 transition-colors line-clamp-2">{resource.title}</h3>
+                                    <div className="flex items-center text-sm text-gray-500 mb-4">
+                                        <img 
+                                            src={resource.author.avatarUrl || "/avatar.jpg"} 
+                                            alt={resource.author.name} 
+                                            className="w-8 h-8 rounded-full object-cover mr-3 border-2 border-white" 
+                                        />
+                                        <span>By <span className="font-semibold">{resource.author.name}</span></span>
+                                        <span className="mx-2">&middot;</span>
+                                        <span>{formatDate(resource.created_at)}</span>
+                                    </div>
+                                    {resource.description && (
+                                        <p className="text-gray-700 leading-relaxed text-sm mb-4">
+                                            {previewDescription}{plainTextDescription.length > 150 ? '...' : ''}
+                                        </p>
+                                    )}
+                                    <div className="mt-4 text-teal-500 font-medium group-hover:text-teal-600 transition-colors">
+                                        View Resource &rarr;
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
+
+const PublicSingleResourceView: React.FC<{ resource: Resource, onBack: () => void, onOpenModal: (mode: 'login' | 'signup', token?: string | null) => void, onShowResources: () => void }> = ({ resource, onBack, onOpenModal, onShowResources }) => {
+    const formatDate = (dateString: string | undefined | null): string => {
+        if (!dateString) return 'Date not available';
+        try {
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return 'Invalid date';
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        } catch (error) {
+            return 'Date not available';
+        }
+    };
+
+    const ResourceIcon: React.FC<{ type: string }> = ({ type }) => {
+        const iconWrapperClasses = "w-20 h-20 rounded-xl flex items-center justify-center mb-6 shadow-lg";
+        const iconClasses = "w-10 h-10 text-white";
+
+        if (type === 'LINK' || type === 'Link') {
+            return (
+                <div className={`${iconWrapperClasses} bg-blue-500`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                </div>
+            );
+        }
+        
+        return (
+            <div className={`${iconWrapperClasses} bg-green-500`}>
+                 <svg xmlns="http://www.w3.org/2000/svg" className={iconClasses} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+        );
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+            {/* Header */}
+            <header className="bg-white shadow-sm border-b">
+                <div className="container mx-auto px-4 py-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center">
+                            <button 
+                                onClick={onBack}
+                                className="mr-4 p-2 text-gray-600 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                            </button>
+                            <button onClick={onBack} className="hover:opacity-80 transition-opacity">
+                                <Logo textColorClassName="text-teal-600" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Main Content */}
+            <main className="container mx-auto px-4 py-12">
+                <div className="max-w-3xl mx-auto">
+                    <div className="bg-white rounded-xl shadow-xl p-8 sm:p-12">
+                        <div className="flex justify-center">
+                            <ResourceIcon type={resource.type} />
+                        </div>
+                        
+                        <h1 className="text-4xl text-center font-bold text-gray-800 mb-2">{resource.title}</h1>
+                        
+                        <div className="text-sm text-center text-gray-500 mb-8 border-b pb-6">
+                            <span>Shared by <span className="font-semibold">{resource.author.name}</span></span>
+                            <span className="mx-2">&middot;</span>
+                            <span>{formatDate(resource.created_at)}</span>
+                        </div>
+                        
+                        {resource.description && (
+                             <div 
+                                className="text-gray-800 mb-8 max-w-2xl mx-auto resource-content"
+                                dangerouslySetInnerHTML={{ __html: resource.description }}
+                            />
+                        )}
+                        
+                        <div className="text-center">
+                            {(resource.type === 'LINK' || resource.type === 'Link') && resource.content && (
+                                <a href={resource.content} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md hover:shadow-lg text-lg font-semibold">
+                                    Open Link
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                </a>
+                            )}
+                            {(resource.type === 'FILE' || resource.type === 'File') && resource.file_url && (
+                                <a href={resource.file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors shadow-md hover:shadow-lg text-lg font-semibold">
+                                    Download File
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </main>
+            <style>{`
+                .resource-content {
+                    line-height: 1.8;
+                }
+                .resource-content p {
+                    margin-bottom: 1.5rem;
+                }
+                .resource-content h1, .resource-content h2, .resource-content h3, .resource-content h4, .resource-content h5, .resource-content h6 {
+                    font-weight: 700;
+                    margin-top: 2rem;
+                    margin-bottom: 1rem;
+                    color: #1f2937;
+                }
+                .resource-content ul, .resource-content ol {
+                    margin-left: 1.5rem;
+                    margin-bottom: 1.5rem;
+                }
+                .resource-content li {
+                    margin-bottom: 0.5rem;
+                }
+                .resource-content a {
+                    color: #0d9488;
+                    text-decoration: underline;
+                }
+                .resource-content a:hover {
+                    color: #0f766e;
+                }
+            `}</style>
         </div>
     );
 };

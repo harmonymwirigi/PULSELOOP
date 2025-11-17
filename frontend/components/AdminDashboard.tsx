@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse } from '../services/mockApi';
-import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType } from '../types';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion } from '../services/mockApi';
+import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType, NclexQuestion } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
@@ -51,6 +51,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
     const [addingNclexResource, setAddingNclexResource] = useState(false);
     const [generatingNclexQuestions, setGeneratingNclexQuestions] = useState(false);
     const [questionCount, setQuestionCount] = useState<number>(5);
+    const [showNclexEditModal, setShowNclexEditModal] = useState<{show: boolean, course: NclexCourse | null}>({show: false, course: null});
+    const [showNclexDeleteModal, setShowNclexDeleteModal] = useState<{show: boolean, course: NclexCourse | null}>({show: false, course: null});
+    const [editingNclexCourse, setEditingNclexCourse] = useState(false);
+    const [deletingNclexCourse, setDeletingNclexCourse] = useState(false);
+    const [showNclexQuestionForm, setShowNclexQuestionForm] = useState(false);
+    const [editingNclexQuestion, setEditingNclexQuestion] = useState<NclexQuestion | null>(null);
+    const [deletingNclexQuestionId, setDeletingNclexQuestionId] = useState<string | null>(null);
+    const [savingNclexQuestion, setSavingNclexQuestion] = useState(false);
+    const [nclexQuestionForm, setNclexQuestionForm] = useState<{
+        questionText: string;
+        explanation: string;
+        options: Array<{ optionText: string; isCorrect: boolean }>;
+    }>({
+        questionText: '',
+        explanation: '',
+        options: [
+            { optionText: '', isCorrect: false },
+            { optionText: '', isCorrect: false },
+            { optionText: '', isCorrect: false },
+            { optionText: '', isCorrect: false },
+        ],
+    });
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -446,6 +468,69 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
          }
      };
 
+    const handleEditNclexCourse = (course: NclexCourse) => {
+        setShowNclexEditModal({ show: true, course });
+        setNclexCourseForm({
+            title: course.title,
+            description: course.description,
+            status: course.status
+        });
+    };
+
+    const handleSaveNclexCourseEdit = async () => {
+        if (!showNclexEditModal.course) return;
+        
+        const { title, description, status } = nclexCourseForm;
+        if (!title.trim() || !description.trim()) {
+            setNclexError('Title and description are required.');
+            return;
+        }
+
+        setEditingNclexCourse(true);
+        setNclexError(null);
+        setNclexMessage(null);
+        
+        try {
+            await updateNclexCourse(showNclexEditModal.course.id, {
+                title: title.trim(),
+                description: description.trim(),
+                status
+            });
+            setNclexMessage('Course updated successfully.');
+            setShowNclexEditModal({ show: false, course: null });
+            await loadNclexCourses();
+            if (selectedNclexCourse && selectedNclexCourse.id === showNclexEditModal.course.id) {
+                await refreshNclexCourse(showNclexEditModal.course.id);
+            }
+        } catch (err: any) {
+            setNclexError(`Failed to update course: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setEditingNclexCourse(false);
+        }
+    };
+
+    const handleDeleteNclexCourse = async () => {
+        if (!showNclexDeleteModal.course) return;
+
+        setDeletingNclexCourse(true);
+        setNclexError(null);
+        setNclexMessage(null);
+        
+        try {
+            await deleteNclexCourse(showNclexDeleteModal.course.id);
+            setNclexMessage('Course deleted successfully.');
+            setShowNclexDeleteModal({ show: false, course: null });
+            if (selectedNclexCourse && selectedNclexCourse.id === showNclexDeleteModal.course.id) {
+                setSelectedNclexCourse(null);
+            }
+            await loadNclexCourses();
+        } catch (err: any) {
+            setNclexError(`Failed to delete course: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setDeletingNclexCourse(false);
+        }
+    };
+
     const handleSelectNclexCourse = (courseId: string) => {
          const course = nclexCourses.find(c => c.id === courseId);
          if (course) {
@@ -534,6 +619,105 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
             setNclexError(`Failed to generate NCLEX questions: ${err?.message || 'Unknown error'}`);
         } finally {
             setGeneratingNclexQuestions(false);
+        }
+    };
+
+    const resetNclexQuestionForm = () => {
+        setNclexQuestionForm({
+            questionText: '',
+            explanation: '',
+            options: [
+                { optionText: '', isCorrect: false },
+                { optionText: '', isCorrect: false },
+                { optionText: '', isCorrect: false },
+                { optionText: '', isCorrect: false },
+            ],
+        });
+        setEditingNclexQuestion(null);
+    };
+
+    const handleEditNclexQuestion = (question: NclexQuestion) => {
+        setEditingNclexQuestion(question);
+        setNclexQuestionForm({
+            questionText: question.questionText,
+            explanation: question.explanation || '',
+            options: (question.options || []).map(opt => ({
+                optionText: opt.optionText,
+                isCorrect: opt.isCorrect || false,
+            })),
+        });
+        setShowNclexQuestionForm(true);
+    };
+
+    const handleSaveNclexQuestion = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedNclexCourse) return;
+
+        const { questionText, options } = nclexQuestionForm;
+        if (!questionText.trim()) {
+            setNclexError('Question text is required.');
+            return;
+        }
+
+        const validOptions = options.filter(opt => opt.optionText.trim());
+        if (validOptions.length < 2) {
+            setNclexError('At least 2 options are required.');
+            return;
+        }
+
+        const correctCount = validOptions.filter(opt => opt.isCorrect).length;
+        if (correctCount !== 1) {
+            setNclexError('Exactly one option must be marked as correct.');
+            return;
+        }
+
+        setSavingNclexQuestion(true);
+        setNclexError(null);
+        setNclexMessage(null);
+
+        try {
+            const payload = {
+                questionText: questionText.trim(),
+                explanation: nclexQuestionForm.explanation.trim() || undefined,
+                options: validOptions.map(opt => ({
+                    optionText: opt.optionText.trim(),
+                    isCorrect: opt.isCorrect,
+                })),
+            };
+
+            if (editingNclexQuestion) {
+                await updateNclexQuestion(selectedNclexCourse.id, editingNclexQuestion.id, payload);
+                setNclexMessage('Question updated successfully.');
+            } else {
+                await createNclexQuestion(selectedNclexCourse.id, payload);
+                setNclexMessage('Question created successfully.');
+            }
+
+            setShowNclexQuestionForm(false);
+            resetNclexQuestionForm();
+            await refreshNclexCourse(selectedNclexCourse.id);
+        } catch (err: any) {
+            setNclexError(`Failed to ${editingNclexQuestion ? 'update' : 'create'} question: ${err?.message || 'Unknown error'}`);
+        } finally {
+            setSavingNclexQuestion(false);
+        }
+    };
+
+    const handleDeleteNclexQuestion = async (questionId: string) => {
+        if (!selectedNclexCourse) return;
+
+        setDeletingNclexQuestionId(questionId);
+        setNclexError(null);
+        setNclexMessage(null);
+
+        try {
+            await deleteNclexQuestion(selectedNclexCourse.id, questionId);
+            setNclexMessage('Question deleted successfully.');
+            setDeletingNclexQuestionId(null);
+            await refreshNclexCourse(selectedNclexCourse.id);
+        } catch (err: any) {
+            setNclexError(`Failed to delete question: ${err?.message || 'Unknown error'}`);
+            setDeletingNclexQuestionId(null);
         }
     };
 
@@ -685,6 +869,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                                                 className="text-indigo-600 hover:text-indigo-900"
                                             >
                                                 View Resources
+                                            </button>
+                                            <button
+                                                onClick={() => handleEditNclexCourse(course)}
+                                                className="text-blue-600 hover:text-blue-900"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => setShowNclexDeleteModal({ show: true, course })}
+                                                className="text-red-600 hover:text-red-900"
+                                            >
+                                                Delete
                                             </button>
                                             {course.status === 'DRAFT' && (
                                                 <button
@@ -916,8 +1112,129 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                         <div className="mt-6">
                             <div className="flex items-center justify-between mb-2">
                                 <h5 className="text-sm font-semibold text-gray-800">Question Bank</h5>
-                                <span className="text-xs text-gray-500">Total {selectedCourseQuestionCount}</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs text-gray-500">Total {selectedCourseQuestionCount}</span>
+                                    <button
+                                        onClick={() => {
+                                            resetNclexQuestionForm();
+                                            setShowNclexQuestionForm(!showNclexQuestionForm);
+                                        }}
+                                        className="px-3 py-1.5 text-xs font-semibold rounded-md border border-purple-500 text-purple-600 hover:bg-purple-50"
+                                    >
+                                        {showNclexQuestionForm ? 'Close Form' : 'Add Question'}
+                                    </button>
+                                </div>
                             </div>
+
+                            {showNclexQuestionForm && (
+                                <div className="mb-6 border border-purple-200 rounded-lg bg-white p-4">
+                                    <h6 className="text-sm font-semibold text-purple-700 mb-3">
+                                        {editingNclexQuestion ? 'Edit Question' : 'New Question'}
+                                    </h6>
+                                    <form onSubmit={handleSaveNclexQuestion} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Question Text</label>
+                                            <textarea
+                                                value={nclexQuestionForm.questionText}
+                                                onChange={(e) => setNclexQuestionForm(prev => ({ ...prev, questionText: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+                                                placeholder="Enter the question..."
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Explanation (Optional)</label>
+                                            <textarea
+                                                value={nclexQuestionForm.explanation}
+                                                onChange={(e) => setNclexQuestionForm(prev => ({ ...prev, explanation: e.target.value }))}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 h-20"
+                                                placeholder="Explain why the correct answer is right..."
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Answer Options</label>
+                                            <div className="space-y-2">
+                                                {nclexQuestionForm.options.map((option, index) => (
+                                                    <div key={index} className="flex items-center gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={option.optionText}
+                                                            onChange={(e) => {
+                                                                const newOptions = [...nclexQuestionForm.options];
+                                                                newOptions[index].optionText = e.target.value;
+                                                                setNclexQuestionForm(prev => ({ ...prev, options: newOptions }));
+                                                            }}
+                                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                                                        />
+                                                        <label className="flex items-center gap-2 text-sm text-gray-700 whitespace-nowrap">
+                                                            <input
+                                                                type="radio"
+                                                                name="correctOption"
+                                                                checked={option.isCorrect}
+                                                                onChange={() => {
+                                                                    const newOptions = nclexQuestionForm.options.map((opt, idx) => ({
+                                                                        ...opt,
+                                                                        isCorrect: idx === index,
+                                                                    }));
+                                                                    setNclexQuestionForm(prev => ({ ...prev, options: newOptions }));
+                                                                }}
+                                                                className="w-4 h-4 text-purple-600"
+                                                            />
+                                                            Correct
+                                                        </label>
+                                                        {nclexQuestionForm.options.length > 2 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newOptions = nclexQuestionForm.options.filter((_, idx) => idx !== index);
+                                                                    setNclexQuestionForm(prev => ({ ...prev, options: newOptions }));
+                                                                }}
+                                                                className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {nclexQuestionForm.options.length < 5 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNclexQuestionForm(prev => ({
+                                                            ...prev,
+                                                            options: [...prev.options, { optionText: '', isCorrect: false }],
+                                                        }));
+                                                    }}
+                                                    className="mt-2 px-3 py-1 text-xs text-purple-600 hover:text-purple-800 border border-purple-300 rounded-md"
+                                                >
+                                                    + Add Option
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-end gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowNclexQuestionForm(false);
+                                                    resetNclexQuestionForm();
+                                                }}
+                                                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={savingNclexQuestion}
+                                                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                            >
+                                                {savingNclexQuestion ? 'Saving...' : editingNclexQuestion ? 'Update Question' : 'Save Question'}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            )}
                             {loadingNclexDetail ? (
                                 <div className="flex justify-center py-6"><Spinner size="sm" color="teal" /></div>
                             ) : selectedCourseQuestions.length > 0 ? (
@@ -926,7 +1243,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                                         <div key={question.id} className="border border-gray-200 rounded-lg bg-white p-4">
                                             <div className="flex items-start justify-between gap-3">
                                                 <p className="text-sm font-semibold text-gray-800">Q{index + 1}. {question.questionText}</p>
-                                                <span className="text-xs font-medium text-indigo-600">{question.source === 'AI' ? 'AI Generated' : 'Manual'}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-indigo-600">{question.source === 'AI' ? 'AI Generated' : 'Manual'}</span>
+                                                    <button
+                                                        onClick={() => handleEditNclexQuestion(question)}
+                                                        className="text-xs text-blue-600 hover:text-blue-900 px-2 py-1 border border-blue-300 rounded"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (window.confirm('Are you sure you want to delete this question? This action cannot be undone.')) {
+                                                                handleDeleteNclexQuestion(question.id);
+                                                            }
+                                                        }}
+                                                        disabled={deletingNclexQuestionId === question.id}
+                                                        className="text-xs text-red-600 hover:text-red-900 px-2 py-1 border border-red-300 rounded disabled:opacity-50"
+                                                    >
+                                                        {deletingNclexQuestionId === question.id ? 'Deleting...' : 'Delete'}
+                                                    </button>
+                                                </div>
                                             </div>
                                             <ul className="mt-3 space-y-2">
                                                 {question.options?.map((option, optionIndex) => {
@@ -1087,6 +1423,99 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                                 className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold flex items-center justify-center w-24"
                             >
                                 {approvingId === showRejectModal.item.id ? <Spinner /> : 'Reject'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NCLEX Edit Course Modal */}
+            {showNclexEditModal.show && showNclexEditModal.course && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-2xl">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Edit NCLEX Course</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                                <input
+                                    type="text"
+                                    value={nclexCourseForm.title}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, title: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    placeholder="Enter course title"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                                <textarea
+                                    value={nclexCourseForm.description}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, description: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 h-32"
+                                    placeholder="Enter course description"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                                <select
+                                    value={nclexCourseForm.status}
+                                    onChange={(e) => setNclexCourseForm(prev => ({ ...prev, status: e.target.value as NclexCourseStatus }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                >
+                                    <option value="DRAFT">Draft</option>
+                                    <option value="PUBLISHED">Published</option>
+                                    <option value="ARCHIVED">Archived</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="flex justify-end space-x-3 mt-6">
+                            <button
+                                onClick={() => setShowNclexEditModal({ show: false, course: null })}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveNclexCourseEdit}
+                                disabled={editingNclexCourse}
+                                className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold flex items-center justify-center w-24"
+                            >
+                                {editingNclexCourse ? <Spinner /> : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* NCLEX Delete Confirmation Modal */}
+            {showNclexDeleteModal.show && showNclexDeleteModal.course && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white p-6 rounded-lg shadow-2xl w-full max-w-md">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Delete NCLEX Course</h3>
+                        <p className="text-gray-600 mb-6">
+                            Are you sure you want to delete "{showNclexDeleteModal.course.title}"? This will permanently delete:
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                                <li>All course resources (videos, PDFs, etc.)</li>
+                                <li>All questions and answers</li>
+                                <li>All user enrollments and progress</li>
+                                <li>All exam attempts</li>
+                            </ul>
+                            <strong className="text-red-600">This action cannot be undone.</strong>
+                        </p>
+                        <div className="flex justify-end space-x-3">
+                            <button
+                                onClick={() => setShowNclexDeleteModal({ show: false, course: null })}
+                                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteNclexCourse}
+                                disabled={deletingNclexCourse}
+                                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-red-300 disabled:cursor-not-allowed font-semibold flex items-center justify-center w-24"
+                            >
+                                {deletingNclexCourse ? <Spinner /> : 'Delete'}
                             </button>
                         </div>
                     </div>

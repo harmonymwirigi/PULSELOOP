@@ -269,6 +269,7 @@ export interface NclexEnrollment {
     startedAt: string;
     completedAt?: string | null;
     attempts?: NclexAttempt[];
+    latestAttempt?: NclexAttempt;
     resourceProgress?: NclexResourceProgress[];
 }
 
