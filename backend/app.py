@@ -938,6 +938,8 @@ def generate_display_name(user, display_name_preference):
 def signup():
     data = request.json
     email, password, name = data.get('email'), data.get('password'), data.get('name')
+    title = (data.get('title') or '').strip() or None
+    state = (data.get('state') or '').strip() or None
     
     if not all([email, password, name]):
         return jsonify({"error": "Email, password, and name are required"}), 400
@@ -949,12 +951,14 @@ def signup():
         # Securely hash the password before storing it
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
 
-        # Create new user with hashed password
+        # Create new user with hashed password and optional title/state
         new_user = User(
             name=name,
             email=email,
             password=hashed_password,
-            role='PENDING'
+            role='PENDING',
+            title=title if title else None,
+            state=state if state else None
         )
         
         db.session.add(new_user)
@@ -2349,14 +2353,18 @@ def _ensure_openai_configured():
         return jsonify({"error": "AI service is not configured on the server."}), 503
     return None
 
-def _generate_questions_from_ai(course: NCLEXCourse, question_count: int = 5):
+def _generate_questions_from_ai(course: NCLEXCourse, question_count: int = 5, custom_prompt: str = None):
     system_prompt = (
         "You are an expert NCLEX-RN exam preparation assistant. "
         "Generate high-quality NCLEX-style multiple-choice questions with four answer choices."
     )
+    
+    # Use custom prompt if provided, otherwise fall back to course description
+    prompt_content = custom_prompt.strip() if custom_prompt and custom_prompt.strip() else course.description
+    
     user_prompt = f"""
-Generate {question_count} unique NCLEX-style multiple choice questions based strictly on the following course description:
-\"\"\"{course.description}\"\"\"
+Generate {question_count} unique NCLEX-style multiple choice questions based strictly on the following:
+\"\"\"{prompt_content}\"\"\"
 
 Return ONLY valid JSON in the following exact structure (no additional text):
 [
@@ -2720,12 +2728,13 @@ def generate_nclex_questions(course_id):
     data = request.get_json() or {}
     question_count = int(data.get('questionCount', 5))
     replace_existing = data.get('replaceExisting', True)
+    custom_prompt = data.get('prompt', None)
 
     if question_count <= 0 or question_count > 20:
         return jsonify({"error": "questionCount must be between 1 and 20"}), 400
 
     try:
-        generated_questions = _generate_questions_from_ai(course, question_count)
+        generated_questions = _generate_questions_from_ai(course, question_count, custom_prompt)
     except Exception as e:
         return jsonify({"error": f"Failed to generate questions: {e}"}), 500
 

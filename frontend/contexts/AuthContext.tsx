@@ -6,7 +6,7 @@ interface AuthContextType {
     user: User | null;
     login: (email: string, password: string) => Promise<void>;
     logout: () => void;
-    signup: (name: string, email: string, password: string, invitationToken?: string) => Promise<void>;
+    signup: (name: string, email: string, password: string, title?: string, state?: string, invitationToken?: string) => Promise<void>;
     updateUser: (updatedUser: User) => void;
     loading: boolean;
 }
@@ -51,8 +51,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log('User logged out successfully');
     };
 
-    const signup = async (name: string, email: string, password: string, invitationToken?: string) => {
-        await apiSignup(name, email, password, invitationToken);
+    const signup = async (name: string, email: string, password: string, title?: string, state?: string, invitationToken?: string) => {
+        await apiSignup(name, email, password, title, state, invitationToken);
     };
 
     const updateUser = (updatedUser: User) => {

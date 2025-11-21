@@ -51,6 +51,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
     const [addingNclexResource, setAddingNclexResource] = useState(false);
     const [generatingNclexQuestions, setGeneratingNclexQuestions] = useState(false);
     const [questionCount, setQuestionCount] = useState<number>(5);
+    const [questionPrompt, setQuestionPrompt] = useState<string>('');
     const [showNclexEditModal, setShowNclexEditModal] = useState<{show: boolean, course: NclexCourse | null}>({show: false, course: null});
     const [showNclexDeleteModal, setShowNclexDeleteModal] = useState<{show: boolean, course: NclexCourse | null}>({show: false, course: null});
     const [editingNclexCourse, setEditingNclexCourse] = useState(false);
@@ -607,7 +608,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         setNclexError(null);
         setNclexMessage(null);
         try {
-            const result = await generateNclexQuestions(selectedNclexCourse!.id, { questionCount });
+            const result = await generateNclexQuestions(selectedNclexCourse!.id, { 
+                questionCount,
+                prompt: questionPrompt.trim() || undefined
+            });
             const generatedQuestions = Array.isArray(result) ? result : ((result as any)?.questions ?? []);
             const successMessage = !Array.isArray(result) && (result as any)?.message
                 ? (result as any).message
@@ -1085,16 +1089,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
 
                         <div className="mt-6">
                             <h5 className="text-sm font-semibold text-gray-800 mb-2">Generate Questions</h5>
-                            <form onSubmit={handleGenerateNclexQuestions} className="flex flex-col sm:flex-row gap-3">
+                            <form onSubmit={handleGenerateNclexQuestions} className="flex flex-col gap-3">
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
+                                        <input
+                                            type="number"
+                                            value={questionCount}
+                                            onChange={(e) => setQuestionCount(Number(e.target.value))}
+                                            min="1"
+                                            max="100"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Number of Questions</label>
-                                    <input
-                                        type="number"
-                                        value={questionCount}
-                                        onChange={(e) => setQuestionCount(Number(e.target.value))}
-                                        min="1"
-                                        max="100"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Prompt/Description (Optional)
+                                        <span className="text-gray-500 text-xs font-normal ml-1">- Provide a custom prompt to guide question generation</span>
+                                    </label>
+                                    <textarea
+                                        value={questionPrompt}
+                                        onChange={(e) => setQuestionPrompt(e.target.value)}
+                                        placeholder="Enter a description or prompt to guide the AI in generating questions. If left empty, the course description will be used."
+                                        rows={4}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 resize-vertical"
                                     />
                                 </div>
                                 <div className="flex items-end">

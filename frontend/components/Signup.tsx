@@ -9,10 +9,15 @@ interface SignupProps {
     onViewPolicy: () => void;
 }
 
+const titleOptions = ['Dr', 'MD', 'DO', 'NP', 'DNP', 'Nurse', 'RN', 'BSN', 'MSN', 'LPN', 'LVN', 'CNA', 'CMA', 'PA', 'PTOP', 'PT', 'OT', 'PharmD', 'RPh', 'RT', 'RRT', 'EMT', 'Paramedic', 'MA', 'Other'];
+
 const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, invitationToken, onViewPolicy }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [title, setTitle] = useState('');
+    const [customTitle, setCustomTitle] = useState('');
+    const [state, setState] = useState('');
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -45,11 +50,15 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, invitationToken, onVie
         setSuccess('');
         setLoading(true);
         try {
-            await signup(name, email, password, invitationToken || undefined);
+            const finalTitle = title === 'Other' ? customTitle : title;
+            await signup(name, email, password, finalTitle || undefined, state || undefined, invitationToken || undefined);
             setSuccess('Registration successful! Please wait for an admin to approve your account. You can now close this window.');
             setName('');
             if (!isEmailLocked) setEmail('');
             setPassword('');
+            setTitle('');
+            setCustomTitle('');
+            setState('');
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -117,6 +126,44 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, invitationToken, onVie
                             )}
                         </button>
                     </div>
+                </div>
+                <div className="mb-4">
+                    <label className="block text-gray-700 font-medium mb-2" htmlFor="title">Title</label>
+                    <select
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        required
+                        disabled={!!success}
+                    >
+                        <option value="">Select a title</option>
+                        {titleOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    {title === 'Other' && (
+                        <input
+                            type="text"
+                            placeholder="Enter your title"
+                            value={customTitle}
+                            onChange={(e) => setCustomTitle(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 mt-2"
+                            required
+                            disabled={!!success}
+                        />
+                    )}
+                </div>
+                <div className="mb-4">
+                    <label className="block text-gray-700 font-medium mb-2" htmlFor="state">State/Country</label>
+                    <input
+                        type="text"
+                        id="state"
+                        value={state}
+                        onChange={(e) => setState(e.target.value)}
+                        placeholder="e.g., California or USA"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        required
+                        disabled={!!success}
+                    />
                 </div>
 
                 <div className="mb-6 flex items-start space-x-3">

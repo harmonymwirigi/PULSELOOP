@@ -360,6 +360,12 @@ const LandingPage: React.FC = () => {
                                 </svg>
                                 Blogs
                             </button>
+                            <button onClick={() => openModal('login')} className="group w-full sm:w-auto px-8 py-4 border-2 border-white/80 text-white font-bold rounded-full hover:bg-white/20 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
+                                <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                </svg>
+                                Login
+                            </button>
                             <button onClick={() => openModal('signup')} className="group w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-teal-500 to-teal-600 text-white font-bold rounded-full hover:from-teal-600 hover:to-teal-700 transition-all duration-300 hover:scale-105 text-base sm:text-lg shadow-2xl hover:shadow-3xl flex items-center justify-center">
                                 <svg className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -382,25 +388,6 @@ const LandingPage: React.FC = () => {
                                 </svg>
                                 <span className="hidden sm:inline">Trusted by 10,000+ Healthcare Professionals</span>
                                 <span className="sm:hidden">10,000+ Healthcare Professionals</span>
-                            </div>
-                        </div>
-                        
-                        {/* Trust Indicators */}
-                        <div className="text-center">
-                            <p className="text-sm text-gray-300 mb-6 font-medium">Trusted by professionals from</p>
-                            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-8 opacity-70">
-                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
-                                    <span className="text-white font-semibold text-sm sm:text-base">Mayo Clinic</span>
-                                </div>
-                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
-                                    <span className="text-white font-semibold text-sm sm:text-base">Johns Hopkins</span>
-                                </div>
-                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
-                                    <span className="text-white font-semibold text-sm sm:text-base">Cleveland Clinic</span>
-                                </div>
-                                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/20">
-                                    <span className="text-white font-semibold text-sm sm:text-base">Mass General</span>
-                                </div>
                             </div>
                         </div>
                     </div>

@@ -152,11 +152,11 @@ export const login = async (email: string, password: string): Promise<{ accessTo
     return handleApiResponse(response);
 };
 
-export const signup = async (name: string, email: string, password: string, invitationToken?: string): Promise<{ message: string }> => {
+export const signup = async (name: string, email: string, password: string, title?: string, state?: string, invitationToken?: string): Promise<{ message: string }> => {
     const response = await fetch(`${API_BASE_URL}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, invitationToken }),
+        body: JSON.stringify({ name, email, password, title, state, invitationToken }),
     });
     return handleApiResponse(response);
 };
@@ -521,6 +521,7 @@ export interface CreateNclexResourcePayload {
 export interface GenerateNclexQuestionsPayload {
     questionCount?: number;
     replaceExisting?: boolean;
+    prompt?: string;
 }
 
 export const createNclexCourse = async (payload: CreateNclexCoursePayload): Promise<NclexCourse> => {

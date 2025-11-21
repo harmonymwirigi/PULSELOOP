@@ -28,7 +28,7 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
     return <img src="/avatar.jpg" alt={name} className={`${size} rounded-full object-cover shadow-md`} />;
 };
 
-const titleOptions = ['Dr', 'DO', 'DNP', 'NP', 'RN', 'LPN', 'LVN', 'CMA', 'PTOP', 'Other'];
+const titleOptions = ['Dr', 'MD', 'DO', 'NP', 'DNP', 'Nurse', 'RN', 'BSN', 'MSN', 'LPN', 'LVN', 'CNA', 'CMA', 'PA', 'PTOP', 'PT', 'OT', 'PharmD', 'RPh', 'RT', 'RRT', 'EMT', 'Paramedic', 'MA', 'Other'];
 
 const Profile: React.FC = () => {
     const { user, updateUser } = useAuth();
