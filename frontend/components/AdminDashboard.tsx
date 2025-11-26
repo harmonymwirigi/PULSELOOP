@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion } from '../services/mockApi';
-import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType, NclexQuestion } from '../types';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion, getPromotions, adminUpdatePromotionStatus } from '../services/mockApi';
+import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType, NclexQuestion, Promotion } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
-type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS' | 'NCLEX';
+type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS' | 'PROMOTIONS' | 'NCLEX';
 
 interface AdminDashboardProps {
     navigateTo: (view: View) => void;
@@ -19,6 +19,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
     const [pendingBlogs, setPendingBlogs] = useState<Blog[]>([]);
     const [broadcastMessages, setBroadcastMessages] = useState<BroadcastMessage[]>([]);
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -79,14 +80,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         setLoading(true);
         setError(null);
         try {
-            const [pendingUsersData, allUsersData, postsData, resources, blogs, broadcastData, feedbacksData] = await Promise.all([
+            const [pendingUsersData, allUsersData, postsData, resources, blogs, broadcastData, feedbacksData, promotionsData] = await Promise.all([
                 getPendingUsers(),
                 getAllUsers(),
                 getAllPosts(),
                 getAllResources(),
                 getAllBlogs(),
                 getAllBroadcastMessages(),
-                getAllFeedbacks()
+                getAllFeedbacks(),
+                getPromotions('PENDING')
             ]);
             setPendingUsers(pendingUsersData);
             setAllUsers(allUsersData);
@@ -95,6 +97,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
             setPendingBlogs(blogs);
             setBroadcastMessages(broadcastData);
             setFeedbacks(feedbacksData);
+            setPromotions(promotionsData);
         } catch (err) {
             setError(`Failed to fetch data.`);
         } finally {
@@ -428,6 +431,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         });
         setImagePreview(message.imageUrl || null);
         setImageFile(null);
+    };
+
+    const handlePromotionStatusChange = async (promotionId: string, status: 'APPROVED' | 'REJECTED') => {
+        setApprovingId(promotionId);
+        try {
+            const updated = await adminUpdatePromotionStatus(promotionId, status);
+            setPromotions(prev => prev.filter(p => p.id !== updated.id));
+        } catch (err: any) {
+            setError(err?.message || 'Failed to update promotion status.');
+        } finally {
+            setApprovingId(null);
+        }
     };
 
     const handleCreateNclexCourse = async (e: React.FormEvent) => {
@@ -1387,6 +1402,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                     onStatusUpdate={handleFeedbackStatusUpdate}
                     isUpdating={approvingId !== null}
                 />;
+            case 'PROMOTIONS':
+                return (
+                    <PromotionsTable
+                        promotions={promotions}
+                        onChangeStatus={handlePromotionStatusChange}
+                        approvingId={approvingId}
+                    />
+                );
             case 'NCLEX':
                 return renderNclexAdminPanel();
             default:
@@ -1405,6 +1428,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 <TabButton title="Blogs" count={pendingBlogs.length} activeTab={activeTab} onClick={() => setActiveTab('BLOGS')} />
                 <TabButton title="Broadcast Messages" count={broadcastMessages.length} activeTab={activeTab} onClick={() => setActiveTab('BROADCAST_MESSAGES')} />
                 <TabButton title="Feedbacks" count={feedbacks.length} activeTab={activeTab} onClick={() => setActiveTab('FEEDBACKS')} />
+                <TabButton title="Promotions" count={promotions.length} activeTab={activeTab} onClick={() => setActiveTab('PROMOTIONS')} />
                 <TabButton title="NCLEX" count={nclexCourses.length} activeTab={activeTab} onClick={() => setActiveTab('NCLEX')} />
             </div>
             {renderContent()}
@@ -2305,6 +2329,79 @@ const BroadcastMessagesTable: React.FC<{
         )}
     </div>
 );
+};
+
+const PromotionsTable: React.FC<{
+    promotions: Promotion[];
+    onChangeStatus: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+    approvingId: string | null;
+}> = ({ promotions, onChangeStatus, approvingId }) => {
+    if (promotions.length === 0) {
+        return <p className="text-gray-500 text-center py-8">No pending promotions.</p>;
+    }
+
+    return (
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                    <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Business</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Link</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                    {promotions.map((promo) => (
+                        <tr key={promo.id}>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                                <div className="flex flex-col">
+                                    <span className="font-semibold">
+                                        {promo.business?.businessName || promo.business?.name || 'Unknown Business'}
+                                    </span>
+                                    {promo.business?.email && (
+                                        <span className="text-xs text-gray-500">{promo.business.email}</span>
+                                    )}
+                                </div>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                                {promo.title}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                                {promo.description || <span className="text-gray-400 italic">No description</span>}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-blue-600 underline max-w-xs truncate">
+                                {promo.targetUrl ? (
+                                    <a href={promo.targetUrl} target="_blank" rel="noopener noreferrer">
+                                        {promo.targetUrl}
+                                    </a>
+                                ) : (
+                                    <span className="text-gray-400 italic">No link</span>
+                                )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 space-x-2">
+                                <button
+                                    onClick={() => onChangeStatus(promo.id, 'APPROVED')}
+                                    disabled={approvingId === promo.id}
+                                    className="px-3 py-1 rounded-md text-xs font-semibold bg-teal-500 text-white hover:bg-teal-600 disabled:bg-teal-300"
+                                >
+                                    {approvingId === promo.id ? 'Saving...' : 'Approve'}
+                                </button>
+                                <button
+                                    onClick={() => onChangeStatus(promo.id, 'REJECTED')}
+                                    disabled={approvingId === promo.id}
+                                    className="px-3 py-1 rounded-md text-xs font-semibold bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300"
+                                >
+                                    {approvingId === promo.id ? 'Saving...' : 'Reject'}
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
 };
 
 export default AdminDashboard;

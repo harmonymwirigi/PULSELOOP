@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Post, Resource, Blog } from '../types';
+import { searchAll } from '../services/mockApi';
 
 interface SearchResult {
   id: string;
-  type: 'post' | 'resource' | 'blog';
+  type: 'post' | 'resource' | 'blog' | 'user';
   title: string;
   content: string;
   author?: string;
@@ -16,7 +16,7 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onResultClick, placeholder = "Search posts, resources, and blogs..." }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ onResultClick, placeholder = "Search posts, resources, blogs, users..." }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -45,42 +45,8 @@ const SearchBar: React.FC<SearchBarProps> = ({ onResultClick, placeholder = "Sea
 
     setLoading(true);
     try {
-      // This would be replaced with actual API calls
-      // For now, we'll simulate search results
-      const mockResults: SearchResult[] = [
-        {
-          id: '1',
-          type: 'post',
-          title: 'Sample Post Title',
-          content: 'This is a sample post content that matches your search...',
-          author: 'Dr. Jane Smith',
-          createdAt: new Date().toISOString(),
-          url: '/posts/1'
-        },
-        {
-          id: '2',
-          type: 'resource',
-          title: 'Clinical Guidelines 2024',
-          content: 'Updated clinical guidelines for patient care...',
-          author: 'Medical Board',
-          createdAt: new Date().toISOString(),
-          url: '/resources/2'
-        },
-        {
-          id: '3',
-          type: 'blog',
-          title: 'Healthcare Innovation Trends',
-          content: 'Exploring the latest trends in healthcare technology...',
-          author: 'Dr. John Doe',
-          createdAt: new Date().toISOString(),
-          url: '/blogs/3'
-        }
-      ].filter(result => 
-        result.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        result.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-
-      setResults(mockResults);
+      const apiResults = await searchAll(searchQuery);
+      setResults(apiResults);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
@@ -129,6 +95,12 @@ const SearchBar: React.FC<SearchBarProps> = ({ onResultClick, placeholder = "Sea
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
         );
+      case 'user':
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        );
       default:
         return null;
     }
@@ -142,33 +114,37 @@ const SearchBar: React.FC<SearchBarProps> = ({ onResultClick, placeholder = "Sea
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       case 'blog':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'user':
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
   };
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md">
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
-          placeholder={placeholder}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        />
-        {loading && (
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+  <div ref={searchRef} className="relative w-full">
+      <div className="relative flex items-center">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg className="h-5 w-5 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </div>
-        )}
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={handleInputChange}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          {loading && (
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Search Results Dropdown */}

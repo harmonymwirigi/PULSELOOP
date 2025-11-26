@@ -1,6 +1,6 @@
 // frontend/services/mockApi.ts
 
-import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback, Conversation, ConversationMessage, ConversationReaction, NclexCourse, NclexCourseResource, NclexCourseStatus, NclexResourceType, NclexEnrollment, NclexAttempt, NclexQuestion, NclexResourceProgress, NclexResourceProgressStatus } from '../types';
+import { User, Post, Comment, ReactionType, Resource, Blog, CreateResourceData, CreateBlogData, ChatMessage, DisplayNamePreference, Invitation, Notification, BroadcastMessage, Feedback, Conversation, ConversationMessage, ConversationReaction, NclexCourse, NclexCourseResource, NclexCourseStatus, NclexResourceType, NclexEnrollment, NclexAttempt, NclexQuestion, NclexResourceProgress, NclexResourceProgressStatus, Promotion } from '../types';
 
 // Auto-detect production environment and set appropriate API URL
 const getApiBaseUrl = () => {
@@ -142,6 +142,23 @@ const fetchWithAuth = async (endpoint: string, options: RequestInit = {}) => {
     return response; // Return the raw response, let handleApiResponse be called separately
 };
 
+// --- GLOBAL SEARCH ---
+export interface SearchResult {
+    id: string;
+    type: 'post' | 'resource' | 'blog' | 'user';
+    title: string;
+    content: string;
+    author?: string;
+    createdAt: string;
+    url: string;
+}
+
+export const searchAll = async (query: string): Promise<SearchResult[]> => {
+    const response = await fetchWithAuth(`/search?q=${encodeURIComponent(query)}`);
+    const data = await handleApiResponse(response);
+    return data.results || [];
+};
+
 // --- AUTH ---
 export const login = async (email: string, password: string): Promise<{ accessToken: string; user: User }> => {
     const response = await fetch(`${API_BASE_URL}/login`, {
@@ -178,6 +195,10 @@ export interface UpdateProfileData {
     department?: string;
     state?: string;
     bio?: string;
+    isBusiness?: boolean;
+    businessName?: string;
+    businessDescription?: string;
+    businessWebsite?: string;
 }
 
 export const updateProfile = async (data: UpdateProfileData): Promise<User> => {
@@ -194,6 +215,37 @@ export const updateAvatar = async (avatarFile: File): Promise<User> => {
     const response = await fetchWithAuth('/profile/avatar', {
         method: 'POST',
         body: formData,
+    });
+    return handleApiResponse(response);
+};
+
+// --- BUSINESS PROMOTIONS ---
+
+export interface CreatePromotionData {
+    title: string;
+    description?: string;
+    imageUrl?: string;
+    targetUrl?: string;
+}
+
+export const createPromotion = async (data: CreatePromotionData): Promise<Promotion> => {
+    const response = await fetchWithAuth('/promotions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    });
+    return handleApiResponse(response);
+};
+
+export const getPromotions = async (status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'APPROVED'): Promise<Promotion[]> => {
+    const response = await fetchWithAuth(`/promotions?status=${encodeURIComponent(status)}`);
+    const data = await handleApiResponse(response);
+    return data.promotions || [];
+};
+
+export const adminUpdatePromotionStatus = async (promotionId: string, status: 'APPROVED' | 'REJECTED'): Promise<Promotion> => {
+    const response = await fetchWithAuth(`/admin/promotions/${promotionId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
     });
     return handleApiResponse(response);
 };
@@ -913,6 +965,15 @@ export const getUnreadCount = async (): Promise<{ unread_count: number }> => {
 
 export const getActiveBroadcastMessage = async (): Promise<{ message: BroadcastMessage | null }> => {
     const response = await fetch(`${API_BASE_URL}/broadcast-messages`);
+    return handleApiResponse(response);
+};
+
+// --- USERS DIRECTORY (PUBLIC FOR LOGGED-IN USERS) ---
+export const getUsersDirectory = async (query?: string): Promise<User[]> => {
+    const endpoint = query && query.trim()
+        ? `/users?q=${encodeURIComponent(query.trim())}`
+        : '/users';
+    const response = await fetchWithAuth(endpoint);
     return handleApiResponse(response);
 };
 

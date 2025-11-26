@@ -7,7 +7,22 @@ export enum Role {
 }
 
 // FIX: Added a shared View type to resolve type conflicts.
-export type View = 'FEED' | 'ADMIN' | 'PROFILE' | 'RESOURCES' | 'BLOGS' | 'SINGLE_POST' | 'LOGIN' | 'SIGNUP' | 'SINGLE_RESOURCE' | 'SINGLE_BLOG' | 'INVITATIONS' | 'RESET_PASSWORD' | 'USER_PROFILE' | 'NCLEX';
+export type View =
+  | 'FEED'
+  | 'ADMIN'
+  | 'PROFILE'
+  | 'RESOURCES'
+  | 'BLOGS'
+  | 'SINGLE_POST'
+  | 'LOGIN'
+  | 'SIGNUP'
+  | 'SINGLE_RESOURCE'
+  | 'SINGLE_BLOG'
+  | 'INVITATIONS'
+  | 'RESET_PASSWORD'
+  | 'USER_PROFILE'
+  | 'NCLEX'
+  | 'PROFESSIONALS';
 
 export enum DisplayNamePreference {
     FullName = 'FullName',
@@ -25,6 +40,10 @@ export interface User {
     department?: string;
     state?: string;
     bio?: string;
+    isBusiness?: boolean;
+    businessName?: string;
+    businessDescription?: string;
+    businessWebsite?: string;
     profileCompletionPercentage?: number;
     expertiseLevel?: 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT';
     expertiseAreas?: string[];
@@ -157,6 +176,19 @@ export interface Feedback {
     createdAt: string;
     updatedAt: string;
     author: User;
+}
+
+export interface Promotion {
+    id: string;
+    businessId: string;
+    title: string;
+    description?: string;
+    imageUrl?: string;
+    targetUrl?: string;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    createdAt: string;
+    updatedAt: string;
+    business?: User;
 }
 
 export type MessageSender = 'USER' | 'AI';

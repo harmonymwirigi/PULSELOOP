@@ -587,6 +587,7 @@ from models import (
     NCLEXAttempt,
     NCLEXAttemptAnswer,
     NCLEXResourceProgress,
+    Promotion,
 )
 
 # Load environment variables
@@ -1169,6 +1170,19 @@ def update_profile():
         
         if 'bio' in data:
             user.bio = data['bio'].strip() if data['bio'] else None
+
+        # Business profile fields
+        if 'isBusiness' in data:
+            user.is_business = bool(data['isBusiness'])
+
+        if 'businessName' in data:
+            user.business_name = data['businessName'].strip() if data['businessName'] else None
+
+        if 'businessDescription' in data:
+            user.business_description = data['businessDescription'].strip() if data['businessDescription'] else None
+
+        if 'businessWebsite' in data:
+            user.business_website = data['businessWebsite'].strip() if data['businessWebsite'] else None
         
         db.session.commit()
         
@@ -1237,6 +1251,121 @@ def create_invitation():
             app.logger.warning(f"Failed to send email to {invitee_email}, but invitation was created")
         
         return jsonify({"message": "Invitation sent successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating invitation: {e}")
+        return jsonify({"error": "Failed to create invitation"}), 500
+
+
+# --- BUSINESS PROMOTIONS ---
+
+@app.route('/api/promotions', methods=['POST'])
+@authenticated_only
+def create_promotion():
+    """
+    Create a new business promotion. Only allowed for users who have marked their
+    profile as a business. Promotions start in PENDING status for admin approval.
+    """
+    user_id = request.user_id
+    data = request.json or {}
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if not user.is_business:
+            return jsonify({"error": "Only business accounts can create promotions"}), 403
+
+        title = (data.get('title') or '').strip()
+        if not title:
+            return jsonify({"error": "Title is required"}), 400
+
+        description = (data.get('description') or '').strip() or None
+        image_url = (data.get('imageUrl') or '').strip() or None
+        target_url = (data.get('targetUrl') or '').strip() or None
+
+        promotion = Promotion(
+            business_id=user.id,
+            title=title,
+            description=description,
+            image_url=image_url,
+            target_url=target_url,
+            status='PENDING',
+        )
+        db.session.add(promotion)
+        db.session.commit()
+
+        return jsonify(promotion.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating promotion: {e}")
+        return jsonify({"error": "Failed to create promotion"}), 500
+
+
+@app.route('/api/promotions', methods=['GET'])
+@authenticated_only
+def list_promotions():
+    """
+    List promotions.
+    - By default returns APPROVED promotions for display (e.g., advertisements).
+    - Admins can filter by status using ?status=PENDING|APPROVED|REJECTED.
+    """
+    user_id = request.user_id
+    status = request.args.get('status', 'APPROVED').upper()
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        query = Promotion.query
+
+        # Non-admins can only see approved promotions
+        if user.role != 'ADMIN':
+            query = query.filter(Promotion.status == 'APPROVED')
+        else:
+            if status in ('PENDING', 'APPROVED', 'REJECTED'):
+                query = query.filter(Promotion.status == status)
+
+        promotions = query.order_by(Promotion.created_at.desc()).all()
+        return jsonify({"promotions": [p.to_dict() for p in promotions]}), 200
+    except Exception as e:
+        app.logger.error(f"Error listing promotions: {e}")
+        return jsonify({"error": "Failed to fetch promotions"}), 500
+
+
+@app.route('/api/admin/promotions/<uuid:promotion_id>/status', methods=['PATCH'])
+@authenticated_only
+def update_promotion_status(promotion_id):
+    """
+    Admin endpoint to approve or reject a promotion.
+    Body: { "status": "APPROVED" | "REJECTED" }
+    """
+    user_id = request.user_id
+    data = request.json or {}
+
+    try:
+        user = User.query.get(user_id)
+        if not user or user.role != 'ADMIN':
+            return jsonify({"error": "Admin access required"}), 403
+
+        promotion = Promotion.query.get(str(promotion_id))
+        if not promotion:
+            return jsonify({"error": "Promotion not found"}), 404
+
+        status = (data.get('status') or '').upper()
+        if status not in ('APPROVED', 'REJECTED'):
+            return jsonify({"error": "Invalid status"}), 400
+
+        promotion.status = status
+        db.session.commit()
+
+        return jsonify(promotion.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating promotion status: {e}")
+        return jsonify({"error": "Failed to update promotion status"}), 500
         
     except Exception as e:
         db.session.rollback()
@@ -2023,6 +2152,33 @@ def get_all_users():
         return jsonify([user.to_dict() for user in users]), 200
     except Exception as e:
         app.logger.error(f"Error fetching all users: {e}")
+        return jsonify({"error": "Failed to fetch users"}), 500
+
+@app.route('/api/users', methods=['GET'])
+@authenticated_only
+def list_public_users():
+    """
+    Public directory of approved users (non-PENDING) for logged-in users.
+    Supports optional ?q= query to filter by name, title, or state.
+    """
+    try:
+        raw_query = (request.args.get('q') or '').strip().lower()
+        query = User.query.filter(User.role != 'PENDING')
+
+        if raw_query:
+            like_pattern = f"%{raw_query}%"
+            query = query.filter(
+                db.or_(
+                    db.func.lower(User.name).like(like_pattern),
+                    db.func.lower(User.title).like(like_pattern),
+                    db.func.lower(User.state).like(like_pattern),
+                )
+            )
+
+        users = query.order_by(User.name.asc()).limit(100).all()
+        return jsonify([user.to_dict() for user in users]), 200
+    except Exception as e:
+        app.logger.error(f"Error fetching public users directory: {e}")
         return jsonify({"error": "Failed to fetch users"}), 500
 
 @app.route('/api/admin/users/<uuid:user_id>/role', methods=['PUT'])
@@ -3446,6 +3602,139 @@ def update_feedback_status(feedback_id):
         db.session.rollback()
         app.logger.error(f"Error updating feedback status: {e}")
         return jsonify({"error": "Failed to update feedback status"}), 500
+
+# --- GLOBAL SEARCH ENDPOINT ---
+
+@app.route('/api/search', methods=['GET'])
+@authenticated_only
+def global_search():
+    """Search posts, resources, blogs, and professionals by text, title, or location."""
+    query = (request.args.get('q') or '').strip()
+    if not query:
+        return jsonify({"results": []}), 200
+
+    q_like = f"%{query.lower()}%"
+
+    try:
+        # Posts: search text and author name
+        posts = (
+            Post.query.join(User, Post.author_id == User.id)
+            .filter(
+                db.or_(
+                    db.func.lower(Post.text).like(q_like),
+                    db.func.lower(User.name).like(q_like),
+                )
+            )
+            .order_by(Post.created_at.desc())
+            .limit(10)
+            .all()
+        )
+
+        # Resources: search title / description
+        resources = (
+            Resource.query.join(User, Resource.author_id == User.id)
+            .filter(
+                db.or_(
+                    db.func.lower(Resource.title).like(q_like),
+                    db.func.lower(Resource.description).like(q_like),
+                )
+            )
+            .order_by(Resource.created_at.desc())
+            .limit(10)
+            .all()
+        )
+
+        # Blogs: search title / content
+        blogs = (
+            Blog.query.join(User, Blog.author_id == User.id)
+            .filter(
+                db.or_(
+                    db.func.lower(Blog.title).like(q_like),
+                    db.func.lower(Blog.content).like(q_like),
+                )
+            )
+            .order_by(Blog.created_at.desc())
+            .limit(10)
+            .all()
+        )
+
+        # Professionals (users): exclude PENDING, search by name, title, or state
+        professionals = (
+            User.query.filter(
+                User.role != 'PENDING',
+                db.or_(
+                    db.func.lower(User.name).like(q_like),
+                    db.func.lower(User.title).like(q_like),
+                    db.func.lower(User.state).like(q_like),
+                ),
+            )
+            .order_by(User.name.asc())
+            .limit(10)
+            .all()
+        )
+
+        results = []
+
+        for post in posts:
+            results.append(
+                {
+                    "id": str(post.id),
+                    "type": "post",
+                    "title": (post.display_name or "Post").strip(),
+                    "content": (post.text or "")[:140],
+                    "author": post.author.name if post.author else None,
+                    "createdAt": post.created_at.isoformat() if post.created_at else "",
+                    "url": "",
+                }
+            )
+
+        for resource in resources:
+            results.append(
+                {
+                    "id": str(resource.id),
+                    "type": "resource",
+                    "title": (resource.title or "Resource").strip(),
+                    "content": (resource.description or "")[:140],
+                    "author": resource.author.name if resource.author else None,
+                    "createdAt": resource.created_at.isoformat() if getattr(resource, "created_at", None) else "",
+                    "url": "",
+                }
+            )
+
+        for blog in blogs:
+            results.append(
+                {
+                    "id": str(blog.id),
+                    "type": "blog",
+                    "title": (blog.title or "Blog").strip(),
+                    "content": (blog.content or "")[:140],
+                    "author": blog.author.name if blog.author else None,
+                    "createdAt": blog.created_at.isoformat() if getattr(blog, "created_at", None) else "",
+                    "url": "",
+                }
+            )
+
+        for user in professionals:
+            title = user.title or ""
+            state = user.state or ""
+            details = " · ".join(part for part in [title.strip(), state.strip()] if part)
+
+            results.append(
+                {
+                    "id": str(user.id),
+                    "type": "user",
+                    "title": user.name,
+                    "content": details,
+                    "author": None,
+                    "createdAt": "",
+                    "url": "",
+                }
+            )
+
+        return jsonify({"results": results}), 200
+    except Exception as e:
+        app.logger.error(f"Error performing global search: {e}")
+        return jsonify({"error": "Failed to perform search"}), 500
 
 # --- EMAIL TEST ENDPOINT ---
 

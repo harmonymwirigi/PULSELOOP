@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Role } from '../types';
-import { updateAvatar, updateProfile, createFeedback } from '../services/mockApi';
+import { Role, User } from '../types';
+import { updateAvatar, updateProfile, createFeedback, getUsersDirectory, createPromotion, getPosts } from '../services/mockApi';
 import Spinner from './Spinner';
 
 const getInitials = (name: string) => {
@@ -31,7 +31,7 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
 const titleOptions = ['Dr', 'MD', 'DO', 'NP', 'DNP', 'Nurse', 'RN', 'BSN', 'MSN', 'LPN', 'LVN', 'CNA', 'CMA', 'PA', 'PTOP', 'PT', 'OT', 'PharmD', 'RPh', 'RT', 'RRT', 'EMT', 'Paramedic', 'MA', 'Other'];
 
 const Profile: React.FC = () => {
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, logout } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -53,6 +53,16 @@ const Profile: React.FC = () => {
     const [userState, setUserState] = useState(user?.state || '');
     const [bio, setBio] = useState(user?.bio || '');
 
+    // Business profile state
+    const [isBusiness, setIsBusiness] = useState<boolean>(user?.isBusiness || false);
+    const [businessName, setBusinessName] = useState<string>(user?.businessName || '');
+    const [businessDescription, setBusinessDescription] = useState<string>(user?.businessDescription || '');
+    const [businessWebsite, setBusinessWebsite] = useState<string>(user?.businessWebsite || '');
+
+    // Simple stats moved from feed
+    const [totalPosts, setTotalPosts] = useState<number | null>(null);
+    const [samplePagePosts, setSamplePagePosts] = useState<number | null>(null);
+
     useEffect(() => {
         if (user) {
             const isStandardTitle = titleOptions.includes(user.title || '');
@@ -61,8 +71,26 @@ const Profile: React.FC = () => {
             setDepartment(user.department || '');
             setUserState(user.state || '');
             setBio(user.bio || '');
+            setIsBusiness(!!user.isBusiness);
+            setBusinessName(user.businessName || '');
+            setBusinessDescription(user.businessDescription || '');
+            setBusinessWebsite(user.businessWebsite || '');
         }
     }, [user, isEditing]);
+
+    useEffect(() => {
+        // Load simple post stats for display on profile
+        const loadStats = async () => {
+            try {
+                const result = await getPosts(1, 10);
+                setTotalPosts(result.total);
+                setSamplePagePosts(result.posts.length);
+            } catch (e) {
+                console.error('Failed to load post stats for profile', e);
+            }
+        };
+        loadStats();
+    }, []);
 
 
     if (!user) {
@@ -98,7 +126,11 @@ const Profile: React.FC = () => {
                 title: finalTitle,
                 department,
                 state: userState,
-                bio
+                bio,
+                isBusiness,
+                businessName: isBusiness ? businessName : undefined,
+                businessDescription: isBusiness ? businessDescription : undefined,
+                businessWebsite: isBusiness ? businessWebsite : undefined,
             });
             updateUser(updatedUser);
             setIsEditing(false);
@@ -182,14 +214,47 @@ const Profile: React.FC = () => {
                 </div>
 
                 {!isEditing && (
-                    <button onClick={() => setIsEditing(true)} className="mt-4 sm:mt-0 flex-shrink-0 px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 font-semibold text-sm">
-                        Edit Profile
-                    </button>
+                    <div className="mt-4 sm:mt-0 flex-shrink-0 flex flex-col space-y-2 items-stretch sm:items-end">
+                        <button 
+                            onClick={() => setIsEditing(true)} 
+                            className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 font-semibold text-sm"
+                        >
+                            Edit Profile
+                        </button>
+                        <button
+                            onClick={logout}
+                            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 font-semibold text-sm"
+                        >
+                            Logout
+                        </button>
+                    </div>
                 )}
             </div>
 
-            <div className="mt-8 border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Profile Completion</h3>
+            <div className="mt-8 border-t pt-6 space-y-8">
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Profile Overview</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-teal-50 border border-teal-100 rounded-lg p-4 text-center">
+                        <div className="text-xl font-bold text-teal-700">{totalPosts ?? '—'}</div>
+                        <div className="text-xs text-teal-900/70 mt-1">Total Posts</div>
+                    </div>
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 text-center">
+                        <div className="text-xl font-bold text-indigo-700">{samplePagePosts ?? '—'}</div>
+                        <div className="text-xs text-indigo-900/70 mt-1">Posts Sample Page</div>
+                    </div>
+                    <div className="bg-cyan-50 border border-cyan-100 rounded-lg p-4 text-center">
+                        <div className="text-sm font-semibold text-cyan-700">{user.role}</div>
+                        <div className="text-xs text-cyan-900/70 mt-1">Your Role</div>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-center">
+                        <div className="text-xl font-bold text-emerald-700">
+                            {completionPercentage}%
+                        </div>
+                        <div className="text-xs text-emerald-900/70 mt-1">Profile Complete</div>
+                    </div>
+                </div>
+
+                <h4 className="text-md font-semibold text-gray-800 mb-2">Profile Details</h4>
                 <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                     <div className="bg-teal-500 h-2.5 rounded-full" style={{ width: `${completionPercentage}%` }}></div>
                 </div>
@@ -211,6 +276,48 @@ const Profile: React.FC = () => {
                             <label htmlFor="bio" className="block text-sm font-medium text-gray-700">Brief Narration</label>
                             <textarea id="bio" value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Tell us a bit about your professional background..." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"></textarea>
                         </div>
+
+                        <div className="border-t pt-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-700">This account represents a business</p>
+                                    <p className="text-xs text-gray-500">
+                                        Enable this if you are a clinic, organization, or business promoting services.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBusiness(!isBusiness)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                        isBusiness ? 'bg-teal-500' : 'bg-gray-300'
+                                    }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            isBusiness ? 'translate-x-5' : 'translate-x-1'
+                                        }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {isBusiness && (
+                                <div className="space-y-3">
+                                    {renderTextField('Business Name', 'businessName', businessName, setBusinessName, 'e.g., PulseLoop Health Clinic')}
+                                    <div>
+                                        <label htmlFor="businessDescription" className="block text-sm font-medium text-gray-700">Business Description</label>
+                                        <textarea
+                                            id="businessDescription"
+                                            value={businessDescription}
+                                            onChange={(e) => setBusinessDescription(e.target.value)}
+                                            rows={3}
+                                            placeholder="Briefly describe your business, services, or products..."
+                                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                                        />
+                                    </div>
+                                    {renderTextField('Business Website or Link', 'businessWebsite', businessWebsite, setBusinessWebsite, 'https://your-business.com')}
+                                </div>
+                            )}
+                        </div>
                         <div className="flex justify-end space-x-3">
                             <button onClick={handleCancelEdit} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 font-semibold">Cancel</button>
                             <button onClick={handleSaveProfile} disabled={profileLoading} className="px-6 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:bg-teal-300 flex items-center justify-center w-28 font-semibold">
@@ -219,15 +326,35 @@ const Profile: React.FC = () => {
                         </div>
                     </div>
                 ) : (
-                    <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-                        {renderInfoRow('Title', user.title)}
-                        {renderInfoRow('Department/Specialty', user.department)}
-                        {renderInfoRow('State', user.state)}
-                        <div className="sm:col-span-2">
-                           <dt className="text-sm font-medium text-gray-500">About</dt>
-                           <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{user.bio || <span className="italic text-gray-400">No bio provided.</span>}</dd>
-                        </div>
-                    </dl>
+                    <>
+                        <dl className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+                            {renderInfoRow('Title', user.title)}
+                            {renderInfoRow('Department/Specialty', user.department)}
+                            {renderInfoRow('State', user.state)}
+                            <div className="sm:col-span-2">
+                                <dt className="text-sm font-medium text-gray-500">About</dt>
+                                <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">
+                                    {user.bio || <span className="italic text-gray-400">No bio provided.</span>}
+                                </dd>
+                            </div>
+                        </dl>
+
+                        {user.isBusiness && (
+                            <div className="mt-6 border-t pt-4">
+                                <h4 className="text-md font-semibold text-gray-800 mb-2">Business Profile</h4>
+                                <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                                    {renderInfoRow('Business Name', user.businessName)}
+                                    {renderInfoRow('Business Website', user.businessWebsite)}
+                                    <div className="sm:col-span-2">
+                                        <dt className="text-sm font-medium text-gray-500">Business Description</dt>
+                                        <dd className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">
+                                            {user.businessDescription || <span className="italic text-gray-400">No description provided.</span>}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
@@ -309,8 +436,314 @@ const Profile: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Business Promotions Section */}
+            {user.isBusiness && (
+                <div className="bg-white rounded-xl shadow-lg p-8 mt-8">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-4">Business Promotions</h3>
+                    <p className="text-gray-600 mb-4 text-sm">
+                        Create a promotion for your business or product. After admin approval, it may appear as an advertisement banner for users.
+                    </p>
+                    <BusinessPromotionForm />
+                </div>
+            )}
         </div>
     );
 };
 
+const BusinessPromotionForm: React.FC = () => {
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [imageUrl, setImageUrl] = useState('');
+    const [targetUrl, setTargetUrl] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!title.trim()) {
+            setErrorMessage('Title is required.');
+            return;
+        }
+        setLoading(true);
+        setErrorMessage(null);
+        try {
+            await createPromotion({
+                title: title.trim(),
+                description: description.trim() || undefined,
+                imageUrl: imageUrl.trim() || undefined,
+                targetUrl: targetUrl.trim() || undefined,
+            });
+            setSuccessMessage('Promotion submitted for admin review.');
+            setTitle('');
+            setDescription('');
+            setImageUrl('');
+            setTargetUrl('');
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (err: any) {
+            setErrorMessage(err?.message || 'Failed to create promotion.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMessage && (
+                <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
+                    {errorMessage}
+                </div>
+            )}
+            {successMessage && (
+                <div className="p-3 rounded-md bg-green-50 text-green-700 text-sm">
+                    {successMessage}
+                </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Promotion Title</label>
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="e.g., 20% off annual subscription"
+                        required
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="Briefly describe your promotion or offer..."
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Image URL (optional)</label>
+                    <input
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="https://example.com/banner.png"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Target Link (optional)</label>
+                    <input
+                        type="url"
+                        value={targetUrl}
+                        onChange={(e) => setTargetUrl(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        placeholder="https://your-business.com/product"
+                    />
+                </div>
+            </div>
+            <div className="flex justify-end">
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-6 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:bg-teal-300 font-semibold text-sm flex items-center justify-center"
+                >
+                    {loading ? <Spinner /> : 'Submit Promotion'}
+                </button>
+            </div>
+        </form>
+    );
+};
+
 export default Profile;
+
+// Professionals directory for non-admin users
+export const ProfessionalsDirectory: React.FC<{ initialUserId?: string; onSearchResult?: (result: any) => void }> = ({ initialUserId }) => {
+    const [users, setUsers] = useState<User[]>([]);
+    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [countryFilter, setCountryFilter] = useState<string>('');
+    const [titleFilter, setTitleFilter] = useState<string>('');
+
+    const loadUsers = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getUsersDirectory();
+            setUsers(data);
+            if (initialUserId) {
+                const found = data.find((u) => u.id === initialUserId) || null;
+                setSelectedUser(found);
+            }
+        } catch (e: any) {
+            setError(e?.message || 'Failed to load professionals.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadUsers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const uniqueCountries = Array.from(new Set(users.map((u) => u.state).filter(Boolean))).sort();
+    const uniqueTitles = Array.from(new Set(users.map((u) => u.title).filter(Boolean))).sort();
+
+    const filteredUsers = users.filter((u) => {
+        const matchesCountry = countryFilter ? u.state === countryFilter : true;
+        const matchesTitle = titleFilter ? u.title === titleFilter : true;
+        return matchesCountry && matchesTitle;
+    });
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Healthcare Professionals</h2>
+                    <p className="text-sm text-gray-500">
+                        {selectedUser
+                            ? 'Viewing professional profile.'
+                            : 'Browse and filter verified members by country/state and title.'}
+                    </p>
+                </div>
+                {!selectedUser && (
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <select
+                            value={countryFilter}
+                            onChange={(e) => setCountryFilter(e.target.value)}
+                            className="flex-1 sm:w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        >
+                            <option value="">All Countries / States</option>
+                            {uniqueCountries.map((state) => (
+                                <option key={state} value={state as string}>
+                                    {state}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            value={titleFilter}
+                            onChange={(e) => setTitleFilter(e.target.value)}
+                            className="flex-1 sm:w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                        >
+                            <option value="">All Titles</option>
+                            {uniqueTitles.map((title) => (
+                                <option key={title} value={title as string}>
+                                    {title}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
+            </div>
+
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-md text-sm">
+                    {error}
+                </div>
+            )}
+
+            {!selectedUser ? (
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-3 max-h-[520px] overflow-y-auto">
+                    {loading ? (
+                        <div className="flex justify-center py-8">
+                            <Spinner size="md" color="teal" />
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <p className="text-sm text-gray-500">No professionals found.</p>
+                    ) : (
+                        <ul className="divide-y divide-gray-100">
+                            {filteredUsers.map((u) => (
+                                <li key={u.id}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedUser(u)}
+                                        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-50 transition-colors"
+                                    >
+                                        <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
+                                            <img
+                                                src={u.avatarUrl || '/avatar.jpg'}
+                                                alt={u.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-gray-800 truncate">{u.name}</p>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {[u.title, u.state].filter(Boolean).join(' · ') || 'No details set'}
+                                            </p>
+                                        </div>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl shadow border border-gray-200 p-6 space-y-4">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedUser(null)}
+                        className="inline-flex items-center text-sm text-teal-600 hover:text-teal-700 mb-2"
+                    >
+                        <svg
+                            className="w-4 h-4 mr-1"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to professionals list
+                    </button>
+
+                    <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-teal-500">
+                            <img
+                                src={selectedUser.avatarUrl || '/avatar.jpg'}
+                                alt={selectedUser.name}
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-800">{selectedUser.name}</h3>
+                            <p className="text-sm text-gray-600">
+                                {[selectedUser.title, selectedUser.state].filter(Boolean).join(' · ')}
+                            </p>
+                        </div>
+                    </div>
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <dt className="font-medium text-gray-500">Email</dt>
+                            <dd className="mt-1 text-gray-800">{selectedUser.email}</dd>
+                        </div>
+                        <div>
+                            <dt className="font-medium text-gray-500">Role</dt>
+                            <dd className="mt-1 text-gray-800">{selectedUser.role}</dd>
+                        </div>
+                        <div>
+                            <dt className="font-medium text-gray-500">Department / Specialty</dt>
+                            <dd className="mt-1 text-gray-800">
+                                {selectedUser.department || <span className="text-gray-400 italic">Not set</span>}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="font-medium text-gray-500">State / Country</dt>
+                            <dd className="mt-1 text-gray-800">
+                                {selectedUser.state || <span className="text-gray-400 italic">Not set</span>}
+                            </dd>
+                        </div>
+                    </dl>
+                    <div>
+                        <dt className="block text-sm font-medium text-gray-500 mb-1">Bio</dt>
+                        <dd className="text-sm text-gray-800 whitespace-pre-wrap">
+                            {selectedUser.bio || <span className="text-gray-400 italic">No bio provided.</span>}
+                        </dd>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};

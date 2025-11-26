@@ -3,12 +3,14 @@ import { getResources, createResource } from '../services/mockApi';
 import { Resource, ResourceType, CreateResourceData } from '../types';
 import Spinner from './Spinner';
 import QuillRichTextEditor from './QuillRichTextEditor';
+import SearchBar from './SearchBar';
 
 interface ResourcesProps {
     navigateToResource: (resource: Resource) => void;
+    onSearchResult?: (result: any) => void;
 }
 
-const Resources: React.FC<ResourcesProps> = ({ navigateToResource }) => {
+const Resources: React.FC<ResourcesProps> = ({ navigateToResource, onSearchResult }) => {
     const [resources, setResources] = useState<Resource[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -53,10 +55,20 @@ const Resources: React.FC<ResourcesProps> = ({ navigateToResource }) => {
 
     return (
         <div className="max-w-6xl mx-auto">
-             <div className="flex justify-between items-center mb-8 border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 border-b pb-4">
                 <div>
                     <h1 className="text-4xl font-bold text-gray-800">Knowledge Library</h1>
                     <p className="text-gray-500 mt-1">Your professional hub for shared files and links.</p>
+                </div>
+                <div className="w-full md:w-80">
+                    <SearchBar
+                        onResultClick={(result) => {
+                            if (onSearchResult) {
+                                onSearchResult(result);
+                            }
+                        }}
+                        placeholder="Search resources, blogs, feeds, professionals..."
+                    />
                 </div>
                 <button 
                     onClick={() => setShowForm(!showForm)}

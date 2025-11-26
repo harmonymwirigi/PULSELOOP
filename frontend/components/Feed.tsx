@@ -1,21 +1,23 @@
 // frontend/components/Feed.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPosts, createPost as apiCreatePost } from '../services/mockApi';
-import { Post, Role, DisplayNamePreference } from '../types';
+import { getPosts, createPost as apiCreatePost, getPromotions } from '../services/mockApi';
+import { Post, Role, DisplayNamePreference, Promotion } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import CreatePostForm from './CreatePostForm';
 import PostCard from './PostCard';
 import Spinner from './Spinner';
+import SearchBar from './SearchBar';
 
 interface FeedProps {
     navigateToPost: (post: Post) => void;
     initialTagFilter?: string | null;
     onTagFilterChange?: (tag: string | null) => void;
+    onSearchResult?: (result: any) => void;
 }
 
 const POSTS_PER_PAGE = 5;
 
-const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilterChange }) => {
+const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilterChange, onSearchResult }) => {
     const { user } = useAuth();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -23,6 +25,7 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
     const [filterTag, setFilterTag] = useState<string | null>(initialTagFilter || null);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPosts, setTotalPosts] = useState(0);
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
 
     const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE) || 1;
 
@@ -51,6 +54,18 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
     useEffect(() => {
         fetchPosts();
     }, [fetchPosts]);
+
+    useEffect(() => {
+        const loadPromotions = async () => {
+            try {
+                const approved = await getPromotions('APPROVED');
+                setPromotions(approved);
+            } catch (e) {
+                console.error('Failed to load promotions for feed header', e);
+            }
+        };
+        loadPromotions();
+    }, []);
 
     // Handle initial tag filter changes from trending topics
     useEffect(() => {
@@ -115,43 +130,86 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
 
     return (
         <div>
-            {/* Dashboard Header */}
+            {/* Page Search */}
             {user && (
-                <div className="bg-gradient-to-r from-indigo-600 to-cyan-600 rounded-xl p-6 mb-6 text-white shadow-lg">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                        <div className="mb-4 md:mb-0">
-                            <h1 className="text-2xl font-bold mb-2">
-                                Welcome back, {user.name?.split(' ')[0] || 'there'}! 👋
-                            </h1>
-                            <p className="text-indigo-100">
-                                {new Date().toLocaleDateString('en-US', { 
-                                    weekday: 'long', 
-                                    year: 'numeric', 
-                                    month: 'long', 
-                                    day: 'numeric' 
-                                })}
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold">{totalPosts}</div>
-                                <div className="text-sm text-indigo-100">Total Posts</div>
-                            </div>
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold">{posts.length}</div>
-                                <div className="text-sm text-indigo-100">This Page</div>
-                            </div>
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold">{user.role}</div>
-                                <div className="text-sm text-indigo-100">Your Role</div>
-                            </div>
-                            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3 text-center">
-                                <div className="text-2xl font-bold">
-                                    {user.profileCompletionPercentage || 0}%
+                <div className="mb-4">
+                    <SearchBar
+                        onResultClick={(result) => {
+                            if (onSearchResult) {
+                                onSearchResult(result);
+                            }
+                        }}
+                        placeholder="Search feeds, resources, blogs, professionals..."
+                    />
+                </div>
+            )}
+
+            {/* Header Advertisements (replaces stats section) */}
+            {user && promotions.length > 0 && (
+                <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-5 sm:p-6 mb-6 text-white shadow-xl">
+                    <div className="max-w-md">
+                        <h1 className="text-2xl font-extrabold mb-1">
+                            Featured Advertisements
+                        </h1>
+                        <p className="text-indigo-100 text-sm">
+                            Discover offers and services from businesses in the PulseLoopCare community.
+                        </p>
+                    </div>
+
+                    {/* Promotions listed below the heading text */}
+                    <div className="mt-4 grid grid-cols-1 gap-4">
+                        {promotions.slice(0, 3).map((promo) => (
+                            <a
+                                key={promo.id}
+                                href={promo.targetUrl || '#'}
+                                target={promo.targetUrl ? '_blank' : undefined}
+                                rel={promo.targetUrl ? 'noopener noreferrer' : undefined}
+                                className="group bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl border border-white/25 shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 cursor-pointer"
+                            >
+                                {promo.imageUrl && (
+                                    <div className="w-full sm:w-32 md:w-40 h-32 sm:h-24 md:h-28 rounded-lg overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
+                                        <img
+                                            src={promo.imageUrl}
+                                            alt={promo.title}
+                                            className="max-w-full max-h-full object-contain"
+                                        />
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0 space-y-1">
+                                    <p className="text-sm sm:text-base font-semibold leading-snug">
+                                        {promo.title}
+                                    </p>
+                                    {promo.business?.businessName && (
+                                        <p className="text-xs text-indigo-100/80">
+                                            {promo.business.businessName}
+                                        </p>
+                                    )}
+                                    {promo.description && (
+                                        <p className="text-xs sm:text-sm text-indigo-100/90 whitespace-pre-wrap">
+                                            {promo.description}
+                                        </p>
+                                    )}
+                                    {promo.targetUrl && (
+                                        <span className="inline-flex items-center mt-1 text-[11px] sm:text-xs text-yellow-100 group-hover:text-white font-semibold">
+                                            Learn more
+                                            <svg
+                                                className="w-3 h-3 ml-1"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M9 5l7 7-7 7"
+                                                />
+                                            </svg>
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="text-sm text-indigo-100">Profile Complete</div>
-                            </div>
-                        </div>
+                            </a>
+                        ))}
                     </div>
                 </div>
             )}

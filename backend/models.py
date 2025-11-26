@@ -21,6 +21,12 @@ class User(db.Model):
     state = db.Column(db.Text)
     department = db.Column(db.Text)
     bio = db.Column(db.Text)
+
+    # Business / Organization profile fields
+    is_business = db.Column(db.Boolean, nullable=False, default=False)
+    business_name = db.Column(db.Text)
+    business_description = db.Column(db.Text)
+    business_website = db.Column(db.Text)
     invited_by_user_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     expertise_level = db.Column(db.String(50), nullable=False, default='BEGINNER')
     expertise_areas = db.Column(db.Text, nullable=False, default='[]')  # Stored as a JSON string
@@ -37,18 +43,30 @@ class User(db.Model):
     broadcast_messages = db.relationship('BroadcastMessage', backref='creator', lazy=True)
     comments = db.relationship('Comment', backref='author', lazy=True)
     feedbacks = db.relationship('Feedback', backref='author', lazy=True, cascade="all, delete-orphan")
+    promotions = db.relationship('Promotion', backref='business', lazy=True, cascade="all, delete-orphan")
 
     def calculate_profile_completion_percentage(self):
         fields_to_check = [self.title, self.department, self.state, self.bio]
         completed_fields = sum(1 for field in fields_to_check if field and str(field).strip())
+        # Business fields are optional and not counted towards basic profile completion
         return int((completed_fields / 4) * 100)
 
     def to_dict(self):
         return {
-            "id": str(self.id), "name": self.name, "email": self.email, "role": self.role,
-            "avatarUrl": self.avatar_url, "title": self.title, "state": self.state,
-            "department": self.department, "bio": self.bio,
-            "profileCompletionPercentage": self.calculate_profile_completion_percentage()
+            "id": str(self.id),
+            "name": self.name,
+            "email": self.email,
+            "role": self.role,
+            "avatarUrl": self.avatar_url,
+            "title": self.title,
+            "state": self.state,
+            "department": self.department,
+            "bio": self.bio,
+            "isBusiness": self.is_business,
+            "businessName": self.business_name,
+            "businessDescription": self.business_description,
+            "businessWebsite": self.business_website,
+            "profileCompletionPercentage": self.calculate_profile_completion_percentage(),
         }
 
 class Post(db.Model):
@@ -246,6 +264,33 @@ class BroadcastMessage(db.Model):
             "createdAt": self.created_at.isoformat(),
             "updatedAt": self.updated_at.isoformat(),
             "creator": self.creator.to_dict() if self.creator else None
+        }
+
+
+class Promotion(db.Model):
+    __tablename__ = 'promotions'
+    id = db.Column(db.CHAR(36), primary_key=True, default=generate_uuid_str)
+    business_id = db.Column(db.CHAR(36), db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    title = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    image_url = db.Column(db.Text, nullable=True)
+    target_url = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(50), nullable=False, default='PENDING')  # PENDING, APPROVED, REJECTED
+    created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "businessId": str(self.business_id),
+            "title": self.title,
+            "description": self.description,
+            "imageUrl": self.image_url,
+            "targetUrl": self.target_url,
+            "status": self.status,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            "business": self.business.to_dict() if self.business else None,
         }
 
 class Resource(db.Model):

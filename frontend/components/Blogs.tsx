@@ -4,9 +4,11 @@ import { Blog, CreateBlogData } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import Spinner from './Spinner';
 import QuillRichTextEditor from './QuillRichTextEditor';
+import SearchBar from './SearchBar';
 
 interface BlogsProps {
     navigateToBlog: (blog: Blog) => void;
+    onSearchResult?: (result: any) => void;
 }
 
 const DEFAULT_BLOG_COVER_IMAGE = '/blog.jpg';
@@ -23,7 +25,7 @@ const formatDate = (dateString: string | undefined | null): string => {
     }
 };
 
-const Blogs: React.FC<BlogsProps> = ({ navigateToBlog }) => {
+const Blogs: React.FC<BlogsProps> = ({ navigateToBlog, onSearchResult }) => {
     const [blogs, setBlogs] = useState<Blog[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -68,8 +70,18 @@ const Blogs: React.FC<BlogsProps> = ({ navigateToBlog }) => {
 
     return (
         <div className="max-w-6xl mx-auto">
-            <div className="flex justify-between items-center mb-8 border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 border-b pb-4">
                 <h1 className="text-4xl font-bold text-gray-800">Community Blogs</h1>
+                <div className="flex-1 md:max-w-md">
+                    <SearchBar
+                        onResultClick={(result) => {
+                            if (onSearchResult) {
+                                onSearchResult(result);
+                            }
+                        }}
+                        placeholder="Search blogs, resources, feeds, professionals..."
+                    />
+                </div>
                 <button 
                     onClick={() => setShowForm(!showForm)}
                     className="flex items-center space-x-2 px-5 py-2.5 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-all duration-300 shadow-md hover:shadow-lg"

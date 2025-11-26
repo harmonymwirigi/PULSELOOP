@@ -5,7 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Feed from './components/Feed';
 import AdminDashboard from './components/AdminDashboard';
-import Profile from './components/Profile';
+import Profile, { ProfessionalsDirectory } from './components/Profile';
 import Resources from './components/Resources';
 import Blogs from './components/Blogs';
 import LandingPage from './components/LandingPage';
@@ -843,6 +843,7 @@ const AppContent: React.FC = () => {
     const [selectedPost, setSelectedPost] = useState<Post | null>(null);
     const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
     const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
     const [feedTagFilter, setFeedTagFilter] = useState<string | null>(null);
     const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
@@ -876,10 +877,28 @@ const AppContent: React.FC = () => {
     };
 
     const handleNavigateToPost = (postId: string) => {
-        // Find the post and navigate to it
-        // This would need to be implemented based on your post fetching logic
+        // Placeholder for potential deep-linking to a specific post
         console.log('Navigate to post:', postId);
         setCurrentView('FEED');
+    };
+
+    const handleSearchResult = (result: any) => {
+        if (!result || !result.type) return;
+
+        if (result.type === 'post') {
+            console.log('Navigate to post search result:', result.id);
+            navigateTo('FEED');
+        } else if (result.type === 'resource') {
+            console.log('Navigate to resource search result:', result.id);
+            navigateTo('RESOURCES');
+        } else if (result.type === 'blog') {
+            console.log('Navigate to blog search result:', result.id);
+            navigateTo('BLOGS');
+        } else if (result.type === 'user') {
+            console.log('Navigate to professional search result:', result.id);
+            setSelectedUserId(result.id);
+            navigateTo('PROFESSIONALS');
+        }
     };
     
     if (loading) {
@@ -902,16 +921,17 @@ const AppContent: React.FC = () => {
 
     const MainContent: React.FC = () => {
         switch (currentView) {
-            case 'FEED': return <Feed navigateToPost={navigateToPost} initialTagFilter={feedTagFilter} onTagFilterChange={setFeedTagFilter} />;
+            case 'FEED': return <Feed navigateToPost={navigateToPost} initialTagFilter={feedTagFilter} onTagFilterChange={setFeedTagFilter} onSearchResult={handleSearchResult} />;
             case 'PROFILE': return <Profile />;
-            case 'RESOURCES': return <Resources navigateToResource={navigateToResource} />;
-            case 'BLOGS': return <Blogs navigateToBlog={navigateToBlog} />;
+            case 'RESOURCES': return <Resources navigateToResource={navigateToResource} onSearchResult={handleSearchResult} />;
+            case 'BLOGS': return <Blogs navigateToBlog={navigateToBlog} onSearchResult={handleSearchResult} />;
             case 'NCLEX': return <NclexCoursesView />;
             case 'INVITATIONS': return <Invitations openInviteModal={() => setIsInviteModalOpen(true)} />;
             case 'SINGLE_POST': return selectedPost && <SinglePostView post={selectedPost} navigateTo={navigateTo} />;
             case 'SINGLE_RESOURCE': return selectedResource && <SingleResourceView resource={selectedResource} navigateTo={navigateTo} />;
             case 'SINGLE_BLOG': return selectedBlog && <SingleBlogView blog={selectedBlog} navigateTo={navigateTo} />;
             case 'RESET_PASSWORD': return <ResetPasswordPage navigateTo={navigateTo} />;
+            case 'PROFESSIONALS': return <ProfessionalsDirectory initialUserId={selectedUserId || undefined} />;
             case 'USER_PROFILE': 
                 return user.role === Role.ADMIN 
                     ? <UserProfilePage onNavigate={navigateTo} /> 
@@ -951,22 +971,6 @@ const AppContent: React.FC = () => {
                 navigateTo={navigateTo} 
                 currentView={currentView} 
                 onOpenNotifications={handleOpenNotifications}
-                onSearchResult={(result) => {
-                    // Handle search result navigation
-                    if (result.type === 'post') {
-                        // Find and navigate to the specific post
-                        console.log('Navigate to post:', result.id);
-                        navigateTo('FEED');
-                    } else if (result.type === 'resource') {
-                        // Navigate to resources and highlight the specific resource
-                        console.log('Navigate to resource:', result.id);
-                        navigateTo('RESOURCES');
-                    } else if (result.type === 'blog') {
-                        // Navigate to blogs and highlight the specific blog
-                        console.log('Navigate to blog:', result.id);
-                        navigateTo('BLOGS');
-                    }
-                }}
             />
             <InviteModal isOpen={isInviteModalOpen} onClose={() => setIsInviteModalOpen(false)} />
             <main className="container mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-8 flex-grow relative">

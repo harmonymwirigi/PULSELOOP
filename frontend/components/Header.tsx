@@ -35,7 +35,7 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
 
 interface SearchResult {
     id: string;
-    type: 'post' | 'resource' | 'blog';
+    type: 'post' | 'resource' | 'blog' | 'user';
     title: string;
     content: string;
     author?: string;
@@ -51,7 +51,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifications, onSearchResult }) => {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -104,7 +104,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
         return (
             <button
                 onClick={() => navigateTo(view)}
-                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
+                className={`px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
                     isActive
                         ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg transform scale-105 border border-white/30'
                         : 'text-white hover:bg-gradient-to-r hover:from-indigo-100/20 hover:to-cyan-100/20 hover:text-white hover:shadow-md hover:scale-102'
@@ -155,28 +155,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                     )}
                 </div>
                 
-                {/* Mobile Search Bar */}
-                {user && (
-                    <div className="w-full mb-2">
-                        <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-indigo-300/30">
-                            <SearchBar 
-                                onResultClick={(result) => {
-                                    if (onSearchResult) {
-                                        onSearchResult(result);
-                                    }
-                                    if (result.type === 'post') {
-                                        navigateTo('FEED');
-                                    } else if (result.type === 'resource') {
-                                        navigateTo('RESOURCES');
-                                    } else if (result.type === 'blog') {
-                                        navigateTo('BLOGS');
-                                    }
-                                }}
-                                placeholder="Search posts, resources, blogs..."
-                            />
-                        </div>
-                    </div>
-                )}
+                {/* Mobile Search Bar removed; page-level search is now rendered inside each view */}
                 
                 {/* Mobile Menu Dropdown */}
                 {isDropdownOpen && user && (
@@ -267,6 +246,22 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     onClick={(e) => { 
                                         e.preventDefault();
                                         e.stopPropagation();
+                                        console.log('Mobile Professionals button clicked');
+                                        navigateTo('PROFESSIONALS'); 
+                                        setIsDropdownOpen(false); 
+                                    }} 
+                                    className="w-full text-left px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center space-x-3"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M7 20h10M7 20v-2a3 3 0 00-5.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span>Professionals</span>
+                                </button>
+                                
+                                <button 
+                                    onClick={(e) => { 
+                                        e.preventDefault();
+                                        e.stopPropagation();
                                         console.log('Mobile Profile button clicked');
                                         navigateTo('PROFILE'); 
                                         setIsDropdownOpen(false); 
@@ -298,25 +293,6 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     </button>
                                 )}
                             </div>
-                            
-                            {/* Logout Button */}
-                            <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
-                                <button 
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        console.log('Mobile Logout button clicked');
-                                        logout();
-                                        setIsDropdownOpen(false);
-                                    }} 
-                                    className="w-full text-left px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-200 flex items-center space-x-3"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    <span>Logout</span>
-                                </button>
-                            </div>
                         </div>
                     </div>
                 )}
@@ -324,37 +300,18 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
 
                 {/* Desktop Layout */}
                 <div className="hidden lg:flex justify-between items-center">
-                    <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
+                    <div className="bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-lg border border-indigo-300/30">
                         <Logo onClick={() => navigateTo(user ? 'FEED' : 'LOGIN')} textColorClassName="text-white" />
                     </div>
-                    <nav className="flex items-center space-x-1">
+                    <nav className="flex items-center space-x-2">
                         {user ? (
                             <>
-                                {/* Search Bar */}
-                                <div className="hidden lg:block mr-4">
-                                    <SearchBar 
-                                        onResultClick={(result) => {
-                                            if (onSearchResult) {
-                                                onSearchResult(result);
-                                            }
-                                            // Navigate based on result type
-                                            if (result.type === 'post') {
-                                                navigateTo('FEED');
-                                            } else if (result.type === 'resource') {
-                                                navigateTo('RESOURCES');
-                                            } else if (result.type === 'blog') {
-                                                navigateTo('BLOGS');
-                                            }
-                                        }}
-                                        placeholder="Search posts, resources, blogs..."
-                                    />
-                                </div>
-                                
                                 <div className="hidden md:flex items-center space-x-1 bg-gradient-to-r from-indigo-800/90 to-purple-800/90 backdrop-blur-md rounded-xl px-4 py-3 shadow-lg border border-indigo-300/30">
                                     <NavButton view="FEED">Feed</NavButton>
                                     <NavButton view="RESOURCES">Resources</NavButton>
                                     <NavButton view="BLOGS">Blogs</NavButton>
                                     <NavButton view="NCLEX">NCLEX</NavButton>
+                                    <NavButton view="PROFESSIONALS">Professionals</NavButton>
                                     {user.role === Role.ADMIN && <NavButton view="ADMIN">Admin Panel</NavButton>}
                                 </div>
                                 
@@ -362,20 +319,6 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                 {onOpenNotifications && (
                                     <NotificationBell onOpenNotifications={onOpenNotifications} />
                                 )}
-                                
-                                {/* Logout Button */}
-                                <button 
-                                    onClick={() => {
-                                        console.log('Desktop Logout button clicked');
-                                        logout();
-                                    }} 
-                                    className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white rounded-xl px-4 py-3 shadow-lg border border-red-400 hover:shadow-xl transition-all duration-300"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    <span className="font-bold">Logout</span>
-                                </button>
                                 
                                 {/* User Avatar Dropdown - Profile Only */}
                                 <div className="relative ml-3" ref={dropdownRef}>
