@@ -216,7 +216,12 @@ export const updateAvatar = async (avatarFile: File): Promise<User> => {
         method: 'POST',
         body: formData,
     });
-    return handleApiResponse(response);
+    const user = await handleApiResponse(response);
+    // Normalize avatar URL to absolute so it loads correctly in the frontend
+    return {
+        ...user,
+        avatarUrl: getAbsoluteUrl(user.avatarUrl),
+    };
 };
 
 // --- BUSINESS PROMOTIONS ---
@@ -258,6 +263,12 @@ export const getPromotions = async (
     return data.promotions || [];
 };
 
+export const getMyPromotions = async (): Promise<Promotion[]> => {
+    const response = await fetchWithAuth('/business/promotions');
+    const data = await handleApiResponse(response);
+    return data.promotions || [];
+};
+
 export interface AdminUpdatePromotionOptions {
     status: 'APPROVED' | 'REJECTED';
     isActive?: boolean;
@@ -273,6 +284,44 @@ export const adminUpdatePromotionStatus = async (
     const response = await fetchWithAuth(`/admin/promotions/${promotionId}/status`, {
         method: 'PATCH',
         body: JSON.stringify(options),
+    });
+    return handleApiResponse(response);
+};
+
+export interface UpdatePromotionData {
+    title?: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    targetUrl?: string | null;
+}
+
+export const updatePromotion = async (promotionId: string, data: UpdatePromotionData): Promise<Promotion> => {
+    const response = await fetchWithAuth(`/promotions/${promotionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+    });
+    return handleApiResponse(response);
+};
+
+// --- NEWSLETTERS (ADMIN) ---
+
+export interface NewsletterDraft {
+    subject: string;
+    htmlBody: string;
+    textBody: string;
+}
+
+export const generateNewsletter = async (): Promise<NewsletterDraft> => {
+    const response = await fetchWithAuth('/admin/newsletters/generate', {
+        method: 'POST',
+    });
+    return handleApiResponse(response);
+};
+
+export const sendNewsletter = async (draft: NewsletterDraft): Promise<{ message: string; recipients: number; total: number }> => {
+    const response = await fetchWithAuth('/admin/newsletters/send', {
+        method: 'POST',
+        body: JSON.stringify(draft),
     });
     return handleApiResponse(response);
 };
@@ -391,7 +440,12 @@ export const approveUser = async (userId: string): Promise<User> => {
 
 export const getAllUsers = async (): Promise<User[]> => {
     const response = await fetchWithAuth('/admin/users');
-    return handleApiResponse(response);
+    const users = await handleApiResponse(response);
+    // Normalize avatar URLs for admin lists and profile views
+    return (users || []).map((u: User) => ({
+        ...u,
+        avatarUrl: getAbsoluteUrl(u.avatarUrl),
+    }));
 };
 
 export const updateUserRole = async (userId: string, role: string): Promise<User> => {
@@ -1001,7 +1055,12 @@ export const getUsersDirectory = async (query?: string): Promise<User[]> => {
         ? `/users?q=${encodeURIComponent(query.trim())}`
         : '/users';
     const response = await fetchWithAuth(endpoint);
-    return handleApiResponse(response);
+    const users = await handleApiResponse(response);
+    // Normalize avatar URLs for professionals directory
+    return (users || []).map((u: User) => ({
+        ...u,
+        avatarUrl: getAbsoluteUrl(u.avatarUrl),
+    }));
 };
 
 export const getAllBroadcastMessages = async (): Promise<BroadcastMessage[]> => {

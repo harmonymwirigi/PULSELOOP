@@ -1320,7 +1320,9 @@ def list_promotions():
       * Does not enforce the scheduling window, so admins can see all.
     """
     user_id = request.user_id
-    status = request.args.get('status', 'APPROVED').upper()
+    # Raw status from query; if omitted, we treat it differently for admins vs non-admins
+    status_param = request.args.get('status')
+    status = status_param.upper() if status_param else None
     include_inactive = request.args.get('includeInactive', 'false').lower() == 'true'
 
     try:
@@ -1340,7 +1342,9 @@ def list_promotions():
                 db.or_(Promotion.end_at.is_(None), Promotion.end_at >= now),
             )
         else:
-            # Admin view: filter by status if valid
+            # Admin view:
+            # - If status is one of known values, filter by it.
+            # - If status is "ALL" or anything else / omitted, do NOT filter by status.
             if status in ('PENDING', 'APPROVED', 'REJECTED'):
                 query = query.filter(Promotion.status == status)
             # Optionally exclude inactive promos unless explicitly requested
@@ -1433,6 +1437,108 @@ def update_promotion_status(promotion_id):
         db.session.rollback()
         app.logger.error(f"Error updating promotion status: {e}")
         return jsonify({"error": "Failed to update promotion status"}), 500
+
+
+@app.route('/api/business/promotions', methods=['GET'])
+@authenticated_only
+def list_my_promotions():
+    """
+    List all promotions owned by the current business user, regardless of status
+    or active window. Used on the profile page so business owners can see and
+    manage their own promotions.
+    """
+    user_id = request.user_id
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        if not user.is_business:
+            return jsonify({"error": "Only business accounts have promotions"}), 403
+
+        promotions = (
+            Promotion.query
+            .filter(Promotion.business_id == user.id)
+            .order_by(Promotion.created_at.desc())
+            .all()
+        )
+        return jsonify({"promotions": [p.to_dict() for p in promotions]}), 200
+    except Exception as e:
+        app.logger.error(f"Error listing business promotions: {e}")
+        return jsonify({"error": "Failed to fetch business promotions"}), 500
+
+
+@app.route('/api/promotions/<uuid:promotion_id>', methods=['PATCH'])
+@authenticated_only
+def update_promotion(promotion_id):
+    """
+    Allow a business owner (or admin) to edit a promotion's content.
+
+    Body (all fields optional):
+      {
+        "title": string,
+        "description": string | null,
+        "imageUrl": string | null,
+        "targetUrl": string | null
+      }
+
+    Rules:
+    - Business owner can only edit their own promotions.
+    - When a non-admin edits a promotion, its status is reset to PENDING and
+      scheduling is cleared so an admin can review again.
+    - Admins can edit without resetting status/schedule.
+    """
+    user_id = request.user_id
+    data = request.json or {}
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        promotion = Promotion.query.get(str(promotion_id))
+        if not promotion:
+            return jsonify({"error": "Promotion not found"}), 404
+
+        is_admin = user.role == 'ADMIN'
+        is_owner = promotion.business_id == user.id
+
+        if not is_admin and not is_owner:
+            return jsonify({"error": "Not authorized to edit this promotion"}), 403
+
+        title = data.get('title')
+        if title is not None:
+            title = (title or '').strip()
+            if not title:
+                return jsonify({"error": "Title cannot be empty"}), 400
+            promotion.title = title
+
+        if 'description' in data:
+            desc = data.get('description')
+            promotion.description = (desc or '').strip() or None
+
+        if 'imageUrl' in data:
+            img = data.get('imageUrl')
+            promotion.image_url = (img or '').strip() or None
+
+        if 'targetUrl' in data:
+            url = data.get('targetUrl')
+            promotion.target_url = (url or '').strip() or None
+
+        # If a non-admin edits, reset status and scheduling so admin can re-review.
+        if not is_admin:
+            promotion.status = 'PENDING'
+            promotion.is_active = True
+            promotion.start_at = None
+            promotion.end_at = None
+
+        db.session.commit()
+        return jsonify(promotion.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating promotion: {e}")
+        return jsonify({"error": "Failed to update promotion"}), 500
         
     except Exception as e:
         db.session.rollback()
@@ -3386,6 +3492,426 @@ def chat_with_ai():
         app.logger.error(f"Error calling OpenAI API: {e}")
         return jsonify({"error": "Failed to get response from AI assistant."}), 500
 
+
+def generate_health_newsletter_via_ai():
+    """
+    Use OpenAI to generate a weekly health/medical newsletter draft.
+    Returns a dict with subject, html_body, and text_body.
+    """
+    if not OPENAI_API_KEY:
+        raise RuntimeError("AI service is not configured on the server.")
+
+    openai.api_key = OPENAI_API_KEY
+
+    system_prompt = (
+        "You are a senior medical communications writer creating a weekly clinical "
+        "newsletter for practicing nurses, nurse practitioners, and hospital clinicians. "
+        "Assume a strong clinical baseline; avoid textbook-level basics. Focus on nuanced "
+        "practice updates, subtle decision-making points, and concise evidence summaries. "
+        "Cite guideline bodies or study names/years when relevant (e.g., WHO 2019, "
+        "Surviving Sepsis Campaign 2021). Do NOT give patient-specific treatment orders; "
+        "content is educational only."
+    )
+
+    user_prompt = """
+Create one weekly email newsletter for experienced nurses and frontline clinicians.
+Structure it with clear sections and short, skimmable paragraphs, but make the content
+substantive enough that an experienced clinician will learn something new.
+
+Requirements:
+- Include a short, catchy subject line (max ~80 characters).
+- Assume the reader already understands basic concepts like hand hygiene and vital signs.
+  Do NOT explain elementary topics (e.g., "wash your hands", "stay hydrated") by themselves.
+- Choose ONE focused clinical theme for this week (e.g., sepsis recognition in older adults,
+  high-risk medication transitions, delirium screening on night shift, etc.).
+- Sections (in order):
+  1) Clinical Focus of the Week
+     - 1–2 sentence case vignette that feels real-world.
+     - 2–3 short paragraphs discussing a nuanced aspect of assessment, escalation,
+       or intervention related to the vignette.
+  2) Evidence Snapshot
+     - 2–3 bullet points, each summarizing ONE key guideline or study (include name/org and year)
+       and the specific bedside implication (e.g., how it changes thresholds, monitoring, or workflow).
+  3) Practice Pearl
+     - 1 short paragraph with a concrete, non-obvious tip (e.g., pattern recognition,
+       phrasing for difficult conversations, a documentation nuance).
+  4) Team & Communication
+     - 1 short paragraph on interdisciplinary communication or handoff quality
+       related to the same clinical theme.
+  5) Wellbeing & Boundaries
+     - 1 short paragraph on sustainable practice (boundaries, debriefing, cognitive load),
+       again tied to the same theme; avoid generic advice like "sleep more" or "drink water".
+- Use neutral, global language (nothing region‑specific).
+- Keep the entire email under 900 words.
+- Do NOT include any tracking pixels or external scripts.
+
+Additionally, propose ONE abstract, non-identifiable illustration idea that could be used
+as a hero image for this newsletter. It must NOT depict specific patients, faces, or real people.
+Think more in terms of abstract clinical themes, silhouettes, or conceptual graphics.
+
+Output JSON ONLY in this exact shape:
+{
+  "subject": "...",
+  "htmlBody": "<p>...</p>",
+  "textBody": "plain text fallback version",
+  "imagePrompt": "Short description for an abstract, non-identifiable medical illustration"
+}
+"""
+
+    chat_completion = openai.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.6,
+    )
+
+    raw = chat_completion.choices[0].message.content
+    try:
+        # Try to parse JSON directly
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # Fallback: extract JSON substring if the model wrapped it in text
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start == -1 or end == -1:
+            raise ValueError("AI response did not contain JSON newsletter content.")
+        data = json.loads(raw[start : end + 1])
+
+    subject = (data.get("subject") or "Weekly Health Update").strip()
+    html_body = (data.get("htmlBody") or "").strip()
+    text_body = (data.get("textBody") or "").strip()
+    image_prompt = (data.get("imagePrompt") or "").strip()
+
+    if not html_body:
+        raise ValueError("AI did not return an htmlBody.")
+
+    return {
+        "subject": subject,
+        "html_body": html_body,
+        "text_body": text_body or subject,
+        "image_prompt": image_prompt or None,
+    }
+
+
+def wrap_newsletter_html(
+    subject: str,
+    body_html: str,
+    hero_image_url: str | None = None,
+) -> str:
+    """
+    Wrap the AI-generated HTML body in a polished, responsive email template
+    with logo and consistent styling.
+    """
+    logo_url = f"{APP_DOMAIN}/logo.jpg"
+    site_url = APP_DOMAIN
+
+    hero_block = ""
+    if hero_image_url:
+        hero_block = f"""
+          <div style="margin: 16px 0 4px 0; border-radius: 14px; overflow: hidden; background-color: #0f172a;">
+            <img src="{hero_image_url}" alt="" style="display:block; width:100%; max-height:260px; object-fit:cover;" />
+          </div>
+        """
+
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{subject}</title>
+    <style>
+      body {{
+        margin: 0;
+        padding: 0;
+        background-color: #0f172a;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: #0f172a;
+      }}
+      .wrapper {{
+        width: 100%;
+        background-color: #0f172a;
+        padding: 24px 0;
+      }}
+      .container {{
+        max-width: 640px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(15,23,42,0.35);
+      }}
+      .header {{
+        background: linear-gradient(90deg,#0f172a,#0f766e,#06b6d4);
+        padding: 24px 32px;
+        color: #e5f6ff;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }}
+      .logo {{
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        overflow: hidden;
+        background-color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }}
+      .logo img {{
+        max-width: 100%;
+        max-height: 100%;
+        display: block;
+      }}
+      .headline-main {{
+        font-size: 22px;
+        font-weight: 800;
+        margin: 0 0 4px 0;
+      }}
+      .headline-sub {{
+        font-size: 13px;
+        opacity: 0.9;
+        margin: 0;
+      }}
+      .body {{
+        padding: 24px 32px 8px 32px;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #111827;
+      }}
+      .body h1, .body h2, .body h3 {{
+        color: #0f172a;
+      }}
+      .body h2 {{
+        font-size: 18px;
+        margin-top: 20px;
+        margin-bottom: 8px;
+      }}
+      .body ul {{
+        padding-left: 20px;
+      }}
+      .footer {{
+        padding: 12px 24px 20px 24px;
+        font-size: 12px;
+        color: #6b7280;
+        border-top: 1px solid #e5e7eb;
+        background-color: #f9fafb;
+      }}
+      .tagline {{
+        font-weight: 600;
+        color: #0f766e;
+      }}
+      a {{ color: #0f766e; }}
+      @media (max-width: 600px) {{
+        .container {{ border-radius: 0; }}
+        .header, .body {{ padding: 18px 16px; }}
+      }}
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <div class="logo">
+            <img src="{logo_url}" alt="PulseLoopCare" />
+          </div>
+          <div>
+            <p class="headline-main">PulseLoop Weekly Briefing</p>
+            <p class="headline-sub">Curated clinical insights and wellbeing tips for your week.</p>
+          </div>
+        </div>
+          <div class="body">
+          {hero_block}
+          {body_html}
+        </div>
+        <div class="footer">
+          <p class="tagline">PulseLoopCare</p>
+          <p>
+            Continue the discussion inside the platform:
+            <a href="{site_url}" style="color:#0f766e; font-weight:600; text-decoration:none;">
+              Visit PulseLoopCare ({site_url})
+            </a>
+          </p>
+          <p>Educational content only – not a substitute for clinical guidelines or local policies.</p>
+          <p style="margin-top:8px;">
+            If you prefer not to receive these emails, you can
+            <a href="{{UNSUBSCRIBE_URL}}" style="color:#6b7280; text-decoration:underline;">unsubscribe here</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+"""
+
+
+@app.route('/api/admin/newsletters/generate', methods=['POST'])
+@role_required(['ADMIN'])
+def generate_newsletter():
+    """
+    Generate a weekly health/medical newsletter draft using OpenAI.
+    Returns subject, htmlBody, and textBody for the admin to preview/edit.
+    """
+    try:
+        newsletter = generate_health_newsletter_via_ai()
+
+        hero_image_url = None
+        image_prompt = newsletter.get("image_prompt")
+        if image_prompt:
+            try:
+                # Use OpenAI Images API to generate an abstract hero illustration
+                image_resp = openai.images.generate(
+                    model="dall-e-3",
+                    prompt=image_prompt,
+                    size="1024x1024",
+                    n=1,
+                )
+                hero_image_url = image_resp.data[0].url
+            except Exception as img_err:
+                app.logger.error(f"Error generating newsletter image via OpenAI: {img_err}")
+                hero_image_url = None
+
+        wrapped_html = wrap_newsletter_html(newsletter["subject"], newsletter["html_body"], hero_image_url)
+        return jsonify({
+            "subject": newsletter["subject"],
+            "htmlBody": wrapped_html,
+            "textBody": newsletter["text_body"],
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Error generating newsletter via AI: {e}")
+        return jsonify({"error": "Failed to generate newsletter content."}), 500
+
+
+@app.route('/api/admin/newsletters/send', methods=['POST'])
+@role_required(['ADMIN'])
+def send_newsletter():
+    """
+    Send a prepared newsletter to all users (startup version: all active users).
+
+    Body:
+      {
+        "subject": string,
+        "htmlBody": string,
+        "textBody": string (optional)
+      }
+    """
+    data = request.json or {}
+    subject = (data.get("subject") or "").strip()
+    html_body = (data.get("htmlBody") or "").strip()
+    text_body = (data.get("textBody") or "").strip() or subject
+
+    if not subject or not html_body:
+        return jsonify({"error": "subject and htmlBody are required"}), 400
+
+    try:
+        users = User.query.all()
+        total = 0
+        sent = 0
+        for user in users:
+            if not user.email:
+                continue
+            if getattr(user, "newsletter_opt_out", False):
+                continue
+            total += 1
+
+            # Personalize links per-recipient
+            base_url = request.url_root.rstrip("/")
+            try:
+                token_payload = {
+                    "sub": str(user.id),
+                    "scope": "newsletter_unsub",
+                    "exp": datetime.now(timezone.utc) + timedelta(days=30),
+                }
+                token = jwt.encode(token_payload, SECRET_KEY, algorithm="HS256")
+            except Exception as token_err:
+                app.logger.error(f"Error creating unsubscribe token for {user.email}: {token_err}")
+                continue
+
+            unsubscribe_url = f"{base_url}/api/newsletters/unsubscribe?token={token}"
+
+            personalized_html = html_body.replace("{{UNSUBSCRIBE_URL}}", unsubscribe_url)
+
+            ok = send_email(user.email, subject, personalized_html, is_html=True)
+            if ok:
+                sent += 1
+
+        app.logger.info(f"Newsletter sent to {sent}/{total} users")
+        return jsonify({"message": "Newsletter sent", "recipients": sent, "total": total}), 200
+    except Exception as e:
+        app.logger.error(f"Error sending newsletter: {e}")
+        return jsonify({"error": "Failed to send newsletter."}), 500
+
+
+@app.route('/api/newsletters/unsubscribe', methods=['GET'])
+def unsubscribe_newsletter():
+    """
+    Unsubscribe a user from future newsletters using a tokenized link.
+    The token is included in the email footer as a GET parameter.
+    """
+    token = request.args.get("token", "").strip()
+    if not token:
+        return (
+            "<h2>Invalid unsubscribe link</h2><p>The link is missing a token.</p>",
+            400,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if payload.get("scope") != "newsletter_unsub":
+            raise jwt.InvalidTokenError("Invalid scope")
+        user_id = payload.get("sub")
+    except Exception as e:
+        app.logger.error(f"Invalid newsletter unsubscribe token: {e}")
+        return (
+            "<h2>Unsubscribe link expired or invalid</h2><p>Please contact support if this issue persists.</p>",
+            400,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    try:
+        user = User.query.get(user_id)
+        if not user:
+            return (
+                "<h2>User not found</h2><p>This unsubscribe link is no longer valid.</p>",
+                404,
+                {"Content-Type": "text/html; charset=utf-8"},
+            )
+
+        user.newsletter_opt_out = True
+        db.session.commit()
+
+        html = f"""
+        <html>
+          <head><title>Unsubscribed</title></head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color:#0f172a; color:#f9fafb; text-align:center; padding:40px 16px;">
+            <div style="max-width:480px; margin:0 auto; background-color:#020617; border-radius:16px; padding:32px 24px; box-shadow:0 20px 40px rgba(15,23,42,0.6);">
+              <h2 style="font-size:24px; margin-bottom:8px;">You've been unsubscribed</h2>
+              <p style="font-size:14px; color:#e5e7eb; margin-bottom:16px;">
+                You will no longer receive the PulseLoop Weekly Briefing at <strong>{user.email}</strong>.
+              </p>
+              <p style="font-size:13px; color:#9ca3af; margin-bottom:20px;">
+                You can still sign in any time to explore discussions and resources.
+              </p>
+              <a href="{APP_DOMAIN}" style="display:inline-block; padding:10px 18px; background:linear-gradient(90deg,#0f766e,#06b6d4); color:#f9fafb; text-decoration:none; border-radius:999px; font-weight:600; font-size:13px;">
+                Go to PulseLoopCare
+              </a>
+            </div>
+          </body>
+        </html>
+        """
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error processing newsletter unsubscribe: {e}")
+        return (
+            "<h2>Something went wrong</h2><p>We couldn't update your preferences. Please try again later.</p>",
+            500,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
 
 @app.route('/api/admin/pending-blogs', methods=['GET'])
 @role_required(['ADMIN'])

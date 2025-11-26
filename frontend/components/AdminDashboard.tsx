@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion, getPromotions, adminUpdatePromotionStatus } from '../services/mockApi';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion, getPromotions, adminUpdatePromotionStatus, generateNewsletter, sendNewsletter, NewsletterDraft } from '../services/mockApi';
 import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType, NclexQuestion, Promotion } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
 
-type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS' | 'PROMOTIONS' | 'NCLEX';
+type Tab = 'PENDING_USERS' | 'ALL_USERS' | 'POSTS' | 'RESOURCES' | 'BLOGS' | 'BROADCAST_MESSAGES' | 'FEEDBACKS' | 'PROMOTIONS' | 'NEWSLETTERS' | 'NCLEX';
 
 interface AdminDashboardProps {
     navigateTo: (view: View) => void;
@@ -75,6 +75,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
             { optionText: '', isCorrect: false },
         ],
     });
+    const [newsletterDraft, setNewsletterDraft] = useState<NewsletterDraft | null>(null);
+    const [newsletterLoading, setNewsletterLoading] = useState(false);
+    const [newsletterSending, setNewsletterSending] = useState(false);
+    const [newsletterMessage, setNewsletterMessage] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -447,8 +451,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 durationDays: options?.durationDays,
                 isActive: options?.isActive,
             });
-            // After approving/rejecting, remove from the pending list
-            setPromotions(prev => prev.filter(p => p.id !== updated.id));
+            // Keep the promotion in the list and just update its fields
+            setPromotions(prev => prev.map(p => (p.id === updated.id ? updated : p)));
         } catch (err: any) {
             setError(err?.message || 'Failed to update promotion status.');
         } finally {
@@ -1421,6 +1425,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                         approvingId={approvingId}
                     />
                 );
+            case 'NEWSLETTERS':
+                return (
+                    <NewsletterPanel
+                        draft={newsletterDraft}
+                        loading={newsletterLoading}
+                        sending={newsletterSending}
+                        message={newsletterMessage}
+                        error={error}
+                        onGenerate={async () => {
+                            setNewsletterMessage(null);
+                            setError(null);
+                            setNewsletterLoading(true);
+                            try {
+                                const draft = await generateNewsletter();
+                                setNewsletterDraft(draft);
+                            } catch (err: any) {
+                                setError(err?.message || 'Failed to generate newsletter.');
+                            } finally {
+                                setNewsletterLoading(false);
+                            }
+                        }}
+                        onChange={(updated) => {
+                            setNewsletterDraft(updated);
+                        }}
+                        onSend={async () => {
+                            if (!newsletterDraft) return;
+                            setNewsletterSending(true);
+                            setNewsletterMessage(null);
+                            setError(null);
+                            try {
+                                const result = await sendNewsletter(newsletterDraft);
+                                setNewsletterMessage(`Newsletter sent to ${result.recipients} of ${result.total} users.`);
+                            } catch (err: any) {
+                                setError(err?.message || 'Failed to send newsletter.');
+                            } finally {
+                                setNewsletterSending(false);
+                            }
+                        }}
+                    />
+                );
             case 'NCLEX':
                 return renderNclexAdminPanel();
             default:
@@ -1440,6 +1484,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 <TabButton title="Broadcast Messages" count={broadcastMessages.length} activeTab={activeTab} onClick={() => setActiveTab('BROADCAST_MESSAGES')} />
                 <TabButton title="Feedbacks" count={feedbacks.length} activeTab={activeTab} onClick={() => setActiveTab('FEEDBACKS')} />
                 <TabButton title="Promotions" count={promotions.length} activeTab={activeTab} onClick={() => setActiveTab('PROMOTIONS')} />
+                <TabButton title="Newsletters" count={0} activeTab={activeTab} onClick={() => setActiveTab('NEWSLETTERS')} />
                 <TabButton title="NCLEX" count={nclexCourses.length} activeTab={activeTab} onClick={() => setActiveTab('NCLEX')} />
             </div>
             {renderContent()}
@@ -2347,6 +2392,7 @@ const PromotionsTable: React.FC<{
     onChangeStatus: (id: string, status: 'APPROVED' | 'REJECTED', options?: { durationDays?: number; isActive?: boolean }) => void;
     approvingId: string | null;
 }> = ({ promotions, onChangeStatus, approvingId }) => {
+    const [durationById, setDurationById] = React.useState<Record<string, number>>({});
     if (promotions.length === 0) {
         return <p className="text-gray-500 text-center py-8">No pending promotions.</p>;
     }
@@ -2424,12 +2470,31 @@ const PromotionsTable: React.FC<{
                             <td className="px-4 py-3 text-sm text-gray-900 space-x-2">
                                 {promo.status === 'PENDING' && (
                                     <>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            className="w-20 px-2 py-1 text-xs border border-gray-300 rounded-md mr-2"
+                                            value={durationById[promo.id] ?? 30}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value, 10);
+                                                setDurationById(prev => ({
+                                                    ...prev,
+                                                    [promo.id]: isNaN(value) ? 30 : value,
+                                                }));
+                                            }}
+                                            title="Promotion duration in days"
+                                        />
                                         <button
-                                            onClick={() => onChangeStatus(promo.id, 'APPROVED', { durationDays: 30, isActive: true })}
+                                            onClick={() =>
+                                                onChangeStatus(promo.id, 'APPROVED', {
+                                                    durationDays: durationById[promo.id] ?? 30,
+                                                    isActive: true,
+                                                })
+                                            }
                                             disabled={approvingId === promo.id}
                                             className="px-3 py-1 rounded-md text-xs font-semibold bg-teal-500 text-white hover:bg-teal-600 disabled:bg-teal-300"
                                         >
-                                            {approvingId === promo.id ? 'Saving...' : 'Approve (30 days)'}
+                                            {approvingId === promo.id ? 'Saving...' : 'Approve'}
                                         </button>
                                         <button
                                             onClick={() => onChangeStatus(promo.id, 'REJECTED')}
@@ -2458,6 +2523,96 @@ const PromotionsTable: React.FC<{
                     ))}
                 </tbody>
             </table>
+        </div>
+    );
+};
+
+const NewsletterPanel: React.FC<{
+    draft: NewsletterDraft | null;
+    loading: boolean;
+    sending: boolean;
+    message: string | null;
+    error: string | null;
+    onGenerate: () => void;
+    onChange: (draft: NewsletterDraft) => void;
+    onSend: () => void;
+}> = ({ draft, loading, sending, message, error, onGenerate, onChange, onSend }) => {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-xl font-bold text-gray-800">Weekly Health Newsletter</h3>
+                    <p className="text-sm text-gray-600">
+                        Use AI to draft a professional health update email, review it, and send to all users.
+                    </p>
+                </div>
+                <button
+                    onClick={onGenerate}
+                    disabled={loading || sending}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-teal-300 font-semibold text-sm"
+                >
+                    {loading ? 'Generating...' : 'Generate Draft with AI'}
+                </button>
+            </div>
+
+            {error && (
+                <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+            {message && (
+                <div className="p-3 rounded-md bg-green-50 text-green-700 text-sm">
+                    {message}
+                </div>
+            )}
+
+            {draft && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Email Subject
+                            </label>
+                            <input
+                                type="text"
+                                value={draft.subject}
+                                onChange={(e) => onChange({ ...draft, subject: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Plain Text Fallback
+                            </label>
+                            <textarea
+                                value={draft.textBody}
+                                onChange={(e) => onChange({ ...draft, textBody: e.target.value })}
+                                rows={6}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                            />
+                        </div>
+                        <button
+                            onClick={onSend}
+                            disabled={sending}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-indigo-300 font-semibold text-sm"
+                        >
+                            {sending ? 'Sending...' : 'Send to All Users'}
+                        </button>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            HTML Preview
+                        </label>
+                        <div className="border border-gray-300 rounded-md overflow-hidden bg-gray-50 h-[480px]">
+                            <iframe
+                                title="Newsletter HTML Preview"
+                                srcDoc={draft.htmlBody}
+                                className="w-full h-full border-0"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -30,7 +30,7 @@ Next, pull the latest version of your code from your GitHub repository.
 
 ```bash
 # Navigate to the root project directory
-sds
+cd /var/www/pulseloop
 
 # Fetch the latest changes from the remote repository
 git fetch origin

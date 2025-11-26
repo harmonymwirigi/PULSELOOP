@@ -24,11 +24,11 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
     const color = colors[colorIndex];
 
     if (avatarUrl) {
-        return <img src={avatarUrl} alt={name} className={`${size} rounded-full object-cover shadow-md`} />;
+        return <img src={avatarUrl} alt={name} className={`${size} rounded-lg object-cover shadow-md`} />;
     }
 
     // Use default avatar.jpg from frontend folder
-    return <img src="/avatar.jpg" alt={name} className={`${size} rounded-full object-cover shadow-md`} />;
+    return <img src="/avatar.jpg" alt={name} className={`${size} rounded-lg object-cover shadow-md`} />;
 };
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.

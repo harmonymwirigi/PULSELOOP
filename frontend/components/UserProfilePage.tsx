@@ -119,7 +119,7 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
                             <img 
                                 src={user.avatarUrl || "/avatar.jpg"} 
                                 alt={user.name} 
-                                className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                                className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl object-cover border-4 border-white shadow-lg"
                             />
                             <div className="flex-1">
                                 <h2 className="text-3xl font-bold text-gray-900 mb-2">{user.name}</h2>

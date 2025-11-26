@@ -21,6 +21,8 @@ class User(db.Model):
     state = db.Column(db.Text)
     department = db.Column(db.Text)
     bio = db.Column(db.Text)
+    # Newsletter preferences
+    newsletter_opt_out = db.Column(db.Boolean, nullable=False, default=False)
 
     # Business / Organization profile fields
     is_business = db.Column(db.Boolean, nullable=False, default=False)
@@ -62,6 +64,7 @@ class User(db.Model):
             "state": self.state,
             "department": self.department,
             "bio": self.bio,
+            "newsletterSubscribed": not bool(self.newsletter_opt_out),
             "isBusiness": self.is_business,
             "businessName": self.business_name,
             "businessDescription": self.business_description,

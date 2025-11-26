@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Role, User } from '../types';
-import { updateAvatar, updateProfile, createFeedback, getUsersDirectory, createPromotion, getPosts } from '../services/mockApi';
+import { Role, User, Promotion } from '../types';
+import { updateAvatar, updateProfile, createFeedback, getUsersDirectory, createPromotion, getPosts, getMyPromotions, updatePromotion } from '../services/mockApi';
 import Spinner from './Spinner';
 
 const getInitials = (name: string) => {
@@ -21,11 +21,11 @@ const Avatar: React.FC<{ name: string, avatarUrl?: string | null, size: string }
     const color = colors[colorIndex];
 
     if (avatarUrl) {
-        return <img src={avatarUrl} alt={name} className={`${size} rounded-full object-cover shadow-md`} />;
+        return <img src={avatarUrl} alt={name} className={`${size} rounded-lg object-cover shadow-md`} />;
     }
 
     // Use default avatar.jpg from frontend folder
-    return <img src="/avatar.jpg" alt={name} className={`${size} rounded-full object-cover shadow-md`} />;
+    return <img src="/avatar.jpg" alt={name} className={`${size} rounded-lg object-cover shadow-md`} />;
 };
 
 const titleOptions = ['Dr', 'MD', 'DO', 'NP', 'DNP', 'Nurse', 'RN', 'BSN', 'MSN', 'LPN', 'LVN', 'CNA', 'CMA', 'PA', 'PTOP', 'PT', 'OT', 'PharmD', 'RPh', 'RT', 'RRT', 'EMT', 'Paramedic', 'MA', 'Other'];
@@ -197,10 +197,10 @@ const Profile: React.FC = () => {
         <div className="max-w-2xl mx-auto mt-10 bg-white p-6 sm:p-8 rounded-lg shadow-lg">
             <div className="flex flex-col items-center sm:flex-row sm:items-start sm:space-x-6">
                 <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-teal-500 rounded-full">
+                    <div className="w-32 h-32 sm:w-40 sm:h-40 border-4 border-teal-500 rounded-xl overflow-hidden">
                        <Avatar name={user.name} avatarUrl={user.avatarUrl} size="w-full h-full" />
                     </div>
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-full flex items-center justify-center transition-opacity">
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 rounded-xl flex items-center justify-center transition-opacity">
                         {!avatarLoading && <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
                         {avatarLoading && <Spinner color="white" />}
                     </div>
@@ -444,14 +444,205 @@ const Profile: React.FC = () => {
                     <p className="text-gray-600 mb-4 text-sm">
                         Create a promotion for your business or product. After admin approval, it may appear as an advertisement banner for users.
                     </p>
-                    <BusinessPromotionForm />
+                    <BusinessPromotionsSection />
                 </div>
             )}
         </div>
     );
 };
 
-const BusinessPromotionForm: React.FC = () => {
+const BusinessPromotionsSection: React.FC = () => {
+    const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [editing, setEditing] = useState<Promotion | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editImageUrl, setEditImageUrl] = useState('');
+    const [editTargetUrl, setEditTargetUrl] = useState('');
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+
+    const loadPromotions = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const data = await getMyPromotions();
+            setPromotions(data);
+        } catch (err: any) {
+            setError(err?.message || 'Failed to load your promotions.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadPromotions();
+    }, []);
+
+    const handleStartEdit = (promo: Promotion) => {
+        setEditing(promo);
+        setEditTitle(promo.title);
+        setEditDescription(promo.description || '');
+        setEditImageUrl(promo.imageUrl || '');
+        setEditTargetUrl(promo.targetUrl || '');
+        setMessage(null);
+        setError(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editing) return;
+        if (!editTitle.trim()) {
+            setError('Title is required.');
+            return;
+        }
+        setSavingEdit(true);
+        setError(null);
+        try {
+            const updated = await updatePromotion(editing.id, {
+                title: editTitle.trim(),
+                description: editDescription.trim() || null,
+                imageUrl: editImageUrl.trim() || null,
+                targetUrl: editTargetUrl.trim() || null,
+            });
+            setPromotions(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+            setEditing(null);
+            setMessage('Promotion updated. It is now pending admin review again.');
+        } catch (err: any) {
+            setError(err?.message || 'Failed to update promotion.');
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            <BusinessPromotionForm
+                onCreated={(promo) => {
+                    setPromotions(prev => [promo, ...prev]);
+                }}
+            />
+
+            {loading && (
+                <div className="text-sm text-gray-500">Loading your promotions...</div>
+            )}
+            {error && (
+                <div className="p-3 rounded-md bg-red-50 text-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+            {message && (
+                <div className="p-3 rounded-md bg-green-50 text-green-700 text-sm">
+                    {message}
+                </div>
+            )}
+
+            {promotions.length > 0 && (
+                <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-3">Your Promotions</h4>
+                    <div className="space-y-3">
+                        {promotions.map((promo) => (
+                            <div key={promo.id} className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-gray-900 truncate">{promo.title}</p>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        Status:{' '}
+                                        <span className="font-medium">
+                                            {promo.status.toLowerCase()}
+                                            {promo.status === 'APPROVED' && (
+                                                promo.isActive === false ? ' (inactive)' : ' (active)'
+                                            )}
+                                        </span>
+                                    </p>
+                                    {promo.description && (
+                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                                            {promo.description}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => handleStartEdit(promo)}
+                                        className="px-3 py-1 text-xs font-semibold rounded-md bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                    >
+                                        Edit
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {editing && (
+                <div className="border border-teal-200 rounded-lg p-4 bg-teal-50">
+                    <h4 className="text-lg font-semibold text-gray-800 mb-2">Edit Promotion</h4>
+                    <p className="text-xs text-gray-600 mb-3">
+                        After saving changes, this promotion will be sent back to admin for approval and may temporarily stop appearing as an ad.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Promotion Title</label>
+                            <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                                required
+                            />
+                        </div>
+                        <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL (optional)</label>
+                            <input
+                                type="url"
+                                value={editImageUrl}
+                                onChange={(e) => setEditImageUrl(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Target Link (optional)</label>
+                            <input
+                                type="url"
+                                value={editTargetUrl}
+                                onChange={(e) => setEditTargetUrl(e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-teal-500 focus:border-teal-500"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-4">
+                        <button
+                            type="button"
+                            onClick={() => setEditing(null)}
+                            className="px-4 py-1 text-sm rounded-md bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleSaveEdit}
+                            disabled={savingEdit}
+                            className="px-4 py-1 text-sm rounded-md bg-teal-500 text-white hover:bg-teal-600 disabled:bg-teal-300"
+                        >
+                            {savingEdit ? 'Saving...' : 'Save Changes'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const BusinessPromotionForm: React.FC<{ onCreated?: (promotion: Promotion) => void }> = ({ onCreated }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [imageUrl, setImageUrl] = useState('');
@@ -469,12 +660,13 @@ const BusinessPromotionForm: React.FC = () => {
         setLoading(true);
         setErrorMessage(null);
         try {
-            await createPromotion({
+            const promo = await createPromotion({
                 title: title.trim(),
                 description: description.trim() || undefined,
                 imageUrl: imageUrl.trim() || undefined,
                 targetUrl: targetUrl.trim() || undefined,
             });
+            onCreated?.(promo);
             setSuccessMessage('Promotion submitted for admin review.');
             setTitle('');
             setDescription('');
@@ -660,9 +852,9 @@ export const ProfessionalsDirectory: React.FC<{ initialUserId?: string; onSearch
                                     <button
                                         type="button"
                                         onClick={() => setSelectedUser(u)}
-                                        className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-50 transition-colors"
+                                        className="w-full flex items-center gap-4 px-3 py-3 text-left hover:bg-gray-50 transition-colors"
                                     >
-                                        <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-200 flex-shrink-0">
+                                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                                             <img
                                                 src={u.avatarUrl || '/avatar.jpg'}
                                                 alt={u.name}
@@ -699,8 +891,8 @@ export const ProfessionalsDirectory: React.FC<{ initialUserId?: string; onSearch
                         Back to professionals list
                     </button>
 
-                    <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-teal-500">
+                    <div className="flex items-center gap-5">
+                        <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 border-teal-500">
                             <img
                                 src={selectedUser.avatarUrl || '/avatar.jpg'}
                                 alt={selectedUser.name}

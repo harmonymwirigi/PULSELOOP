@@ -26,7 +26,8 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPosts, setTotalPosts] = useState(0);
     const [promotions, setPromotions] = useState<Promotion[]>([]);
-    const [activePromotionIndex, setActivePromotionIndex] = useState(0);
+    // Mixed feed items: posts and occasional promotion cards shown between posts.
+    const [feedItems, setFeedItems] = useState<Array<{ type: 'post'; post: Post } | { type: 'promotion'; promotion: Promotion }>>([]);
 
     const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE) || 1;
 
@@ -62,22 +63,58 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                 const approved = await getPromotions('APPROVED');
                 setPromotions(approved);
             } catch (e) {
-                console.error('Failed to load promotions for feed header', e);
+                console.error('Failed to load promotions for feed', e);
             }
         };
         loadPromotions();
     }, []);
 
-    // Rotate promotions like Facebook-style ads
-    useEffect(() => {
-        if (!promotions || promotions.length <= 1) return;
+    const buildFeedItems = React.useCallback(() => {
+        if (!posts || posts.length === 0) {
+            setFeedItems([]);
+            return;
+        }
 
+        const baseItems: Array<{ type: 'post'; post: Post } | { type: 'promotion'; promotion: Promotion }> =
+            posts.map(post => ({ type: 'post', post }));
+
+        if (!promotions || promotions.length === 0) {
+            setFeedItems(baseItems);
+            return;
+        }
+
+        // Shuffle a copy of promotions so each build has a different order.
+        const shuffledPromos = [...promotions].sort(() => Math.random() - 0.5);
+        // Limit how many promos we show per page (e.g., at most 1 per 3 posts).
+        const maxPromos = Math.min(shuffledPromos.length, Math.floor(posts.length / 3) || 1);
+
+        const itemsWithPromos = [...baseItems];
+        for (let i = 0; i < maxPromos; i++) {
+            const promo = shuffledPromos[i];
+            // Choose a random insertion index between posts (avoid very top).
+            const insertIndex = Math.floor(Math.random() * (itemsWithPromos.length - 1)) + 1;
+            itemsWithPromos.splice(insertIndex, 0, { type: 'promotion', promotion: promo });
+        }
+
+        setFeedItems(itemsWithPromos);
+    }, [posts, promotions]);
+
+    // Initial build when posts or promotions change
+    useEffect(() => {
+        buildFeedItems();
+    }, [buildFeedItems]);
+
+    // Periodically reshuffle promotions so different ones appear over time
+    useEffect(() => {
+        if (!posts || posts.length === 0 || !promotions || promotions.length === 0) {
+            return;
+        }
         const interval = setInterval(() => {
-            setActivePromotionIndex((prev) => (prev + 1) % promotions.length);
-        }, 10000); // change every 10 seconds
+            buildFeedItems();
+        }, 15000); // every 15 seconds
 
         return () => clearInterval(interval);
-    }, [promotions]);
+    }, [buildFeedItems, posts.length, promotions.length]);
 
     // Handle initial tag filter changes from trending topics
     useEffect(() => {
@@ -156,29 +193,49 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                 </div>
             )}
 
-            {/* Header Advertisements (replaces stats section) */}
-            {user && promotions.length > 0 && (
-                <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-5 sm:p-6 mb-6 text-white shadow-xl">
-                    <div className="max-w-md">
-                        <h1 className="text-2xl font-extrabold mb-1">
-                            Featured Advertisements
-                        </h1>
-                        <p className="text-indigo-100 text-sm">
-                            Discover offers and services from businesses in the PulseLoopCare community.
-                        </p>
+            {user && (user.role === Role.NURSE || user.role === Role.ADMIN) && <CreatePostForm onCreatePost={handleCreatePost} />}
+            {user && user.role === Role.PENDING && (
+                 <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6" role="alert">
+                    <p className="font-bold">Account Pending</p>
+                    <p>Your account is awaiting admin approval. You can view posts, but you cannot post, comment, or react yet.</p>
+                </div>
+            )}
+            {filterTag && (
+                <div className="bg-teal-50 border-l-4 border-teal-500 text-teal-800 p-4 rounded-md mb-6 flex items-center justify-between">
+                    <div>
+                        <span className="font-semibold">Filtering by tag:</span>
+                        <span className="inline-block bg-teal-200 text-teal-800 text-sm font-medium ml-2 px-2.5 py-0.5 rounded-full">{filterTag}</span>
                     </div>
+                    <button onClick={handleClearFilter} className="font-semibold hover:underline">
+                        Clear Filter
+                    </button>
+                </div>
+            )}
+            <div className="space-y-6">
+                {feedItems.map((item, index) => {
+                    if (item.type === 'post') {
+                        return (
+                            <PostCard
+                                key={item.post.id}
+                                post={item.post}
+                                onUpdate={fetchPosts}
+                                onNavigateToPost={navigateToPost}
+                                onTagClick={handleTagClick}
+                            />
+                        );
+                    }
 
-                    {/* Rotating promotion card */}
-                    <div className="mt-4 grid grid-cols-1 gap-4">
-                        {promotions.map((promo, index) => {
-                            if (index !== activePromotionIndex) return null;
-                            return (
+                    const promo = item.promotion;
+                    return (
+                        <div
+                            key={`promo-${promo.id}-${index}`}
+                            className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-4 sm:p-5 text-white shadow-md"
+                        >
                             <a
-                                key={promo.id}
                                 href={promo.targetUrl || '#'}
                                 target={promo.targetUrl ? '_blank' : undefined}
                                 rel={promo.targetUrl ? 'noopener noreferrer' : undefined}
-                                className="group bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-xl border border-white/25 shadow-md hover:shadow-lg transition transform hover:-translate-y-0.5 flex flex-col sm:flex-row gap-3 sm:gap-4 p-4 cursor-pointer"
+                                className="group flex flex-col sm:flex-row gap-3 sm:gap-4 cursor-pointer"
                             >
                                 {promo.imageUrl && (
                                     <div className="w-full sm:w-32 md:w-40 h-32 sm:h-24 md:h-28 rounded-lg overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
@@ -190,6 +247,9 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                                     </div>
                                 )}
                                 <div className="flex-1 min-w-0 space-y-1">
+                                    <p className="text-xs uppercase tracking-wide text-indigo-100/80 font-semibold">
+                                        Sponsored
+                                    </p>
                                     <p className="text-sm sm:text-base font-semibold leading-snug">
                                         {promo.title}
                                     </p>
@@ -223,34 +283,9 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                                     )}
                                 </div>
                             </a>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {user && (user.role === Role.NURSE || user.role === Role.ADMIN) && <CreatePostForm onCreatePost={handleCreatePost} />}
-            {user && user.role === Role.PENDING && (
-                 <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6" role="alert">
-                    <p className="font-bold">Account Pending</p>
-                    <p>Your account is awaiting admin approval. You can view posts, but you cannot post, comment, or react yet.</p>
-                </div>
-            )}
-            {filterTag && (
-                <div className="bg-teal-50 border-l-4 border-teal-500 text-teal-800 p-4 rounded-md mb-6 flex items-center justify-between">
-                    <div>
-                        <span className="font-semibold">Filtering by tag:</span>
-                        <span className="inline-block bg-teal-200 text-teal-800 text-sm font-medium ml-2 px-2.5 py-0.5 rounded-full">{filterTag}</span>
-                    </div>
-                    <button onClick={handleClearFilter} className="font-semibold hover:underline">
-                        Clear Filter
-                    </button>
-                </div>
-            )}
-            <div className="space-y-6">
-                {posts.map(post => (
-                    <PostCard key={post.id} post={post} onUpdate={fetchPosts} onNavigateToPost={navigateToPost} onTagClick={handleTagClick} />
-                ))}
+                        </div>
+                    );
+                })}
             </div>
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-8 p-4 bg-white rounded-lg shadow-md">
