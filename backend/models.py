@@ -275,7 +275,15 @@ class Promotion(db.Model):
     description = db.Column(db.Text, nullable=True)
     image_url = db.Column(db.Text, nullable=True)
     target_url = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(50), nullable=False, default='PENDING')  # PENDING, APPROVED, REJECTED
+    # Status represents the review decision: PENDING, APPROVED, REJECTED
+    status = db.Column(db.String(50), nullable=False, default='PENDING')
+    # Whether the promotion is currently active from an admin perspective.
+    # Approved promotions can be temporarily inactivated without changing status.
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    # Optional scheduling window for when the promotion should be visible.
+    # If both are set, the promotion is shown only when now is within [start_at, end_at].
+    start_at = db.Column(db.TIMESTAMP(timezone=True), nullable=True)
+    end_at = db.Column(db.TIMESTAMP(timezone=True), nullable=True)
     created_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.TIMESTAMP(timezone=True), nullable=False, server_default=db.func.now(), onupdate=db.func.now())
 
@@ -288,6 +296,9 @@ class Promotion(db.Model):
             "imageUrl": self.image_url,
             "targetUrl": self.target_url,
             "status": self.status,
+            "isActive": self.is_active,
+            "startAt": self.start_at.isoformat() if self.start_at else None,
+            "endAt": self.end_at.isoformat() if self.end_at else None,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
             "business": self.business.to_dict() if self.business else None,

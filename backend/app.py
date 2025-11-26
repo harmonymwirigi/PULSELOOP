@@ -1308,11 +1308,20 @@ def create_promotion():
 def list_promotions():
     """
     List promotions.
-    - By default returns APPROVED promotions for display (e.g., advertisements).
-    - Admins can filter by status using ?status=PENDING|APPROVED|REJECTED.
+
+    - For regular users:
+      * Returns only APPROVED promotions
+      * That are marked is_active = True
+      * And are within their optional [start_at, end_at] window.
+
+    - For admins:
+      * Can filter by status using ?status=PENDING|APPROVED|REJECTED
+      * Optionally include inactive promotions with ?includeInactive=true
+      * Does not enforce the scheduling window, so admins can see all.
     """
     user_id = request.user_id
     status = request.args.get('status', 'APPROVED').upper()
+    include_inactive = request.args.get('includeInactive', 'false').lower() == 'true'
 
     try:
         user = User.query.get(user_id)
@@ -1321,12 +1330,22 @@ def list_promotions():
 
         query = Promotion.query
 
-        # Non-admins can only see approved promotions
+        # Non-admins: only see currently active, approved promotions that are in schedule window
         if user.role != 'ADMIN':
-            query = query.filter(Promotion.status == 'APPROVED')
+            now = db.func.now()
+            query = query.filter(
+                Promotion.status == 'APPROVED',
+                Promotion.is_active.is_(True),
+                db.or_(Promotion.start_at.is_(None), Promotion.start_at <= now),
+                db.or_(Promotion.end_at.is_(None), Promotion.end_at >= now),
+            )
         else:
+            # Admin view: filter by status if valid
             if status in ('PENDING', 'APPROVED', 'REJECTED'):
                 query = query.filter(Promotion.status == status)
+            # Optionally exclude inactive promos unless explicitly requested
+            if not include_inactive:
+                query = query.filter(Promotion.is_active.is_(True))
 
         promotions = query.order_by(Promotion.created_at.desc()).all()
         return jsonify({"promotions": [p.to_dict() for p in promotions]}), 200
@@ -1340,7 +1359,22 @@ def list_promotions():
 def update_promotion_status(promotion_id):
     """
     Admin endpoint to approve or reject a promotion.
-    Body: { "status": "APPROVED" | "REJECTED" }
+
+    Body:
+      {
+        "status": "APPROVED" | "REJECTED",
+        "isActive": bool (optional),
+        "durationDays": int (optional, e.g. 30),
+        "startAt": ISO8601 string (optional, overrides automatic start),
+        "endAt": ISO8601 string (optional, overrides automatic end)
+      }
+
+    Notes:
+    - If durationDays is provided and start/end are not, we set:
+        start_at = now
+        end_at = now + durationDays
+    - Admins can also toggle isActive independently to inactivate/activate an ad
+      without changing its APPROVED/REJECTED status.
     """
     user_id = request.user_id
     data = request.json or {}
@@ -1359,6 +1393,39 @@ def update_promotion_status(promotion_id):
             return jsonify({"error": "Invalid status"}), 400
 
         promotion.status = status
+
+        # Optional active flag
+        if 'isActive' in data:
+            promotion.is_active = bool(data.get('isActive'))
+
+        # Optional scheduling
+        start_at_raw = data.get('startAt')
+        end_at_raw = data.get('endAt')
+        duration_days = data.get('durationDays')
+
+        # Helper to parse ISO8601; fall back to None if invalid
+        def _parse_datetime(value):
+            from datetime import datetime
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(value)
+            except Exception:
+                return None
+
+        if start_at_raw or end_at_raw:
+            promotion.start_at = _parse_datetime(start_at_raw)
+            promotion.end_at = _parse_datetime(end_at_raw)
+        elif duration_days is not None:
+            from datetime import datetime, timedelta
+            try:
+                days_int = int(duration_days)
+            except (TypeError, ValueError):
+                return jsonify({"error": "durationDays must be an integer"}), 400
+            now_dt = datetime.utcnow()
+            promotion.start_at = now_dt
+            promotion.end_at = now_dt + timedelta(days=days_int)
+
         db.session.commit()
 
         return jsonify(promotion.to_dict()), 200
