@@ -86,8 +86,8 @@ body {
 }
 
 .animate-scroll {
-  /* Slow down announcement ticker so it reads comfortably in production */
-  animation: scroll 40s linear infinite;
+  /* Slow, readable announcement ticker for production */
+  animation: scroll 80s linear infinite;
 }
 
 /* Pause animation on hover */
