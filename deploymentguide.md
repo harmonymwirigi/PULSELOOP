@@ -30,7 +30,7 @@ Next, pull the latest version of your code from your GitHub repository.
 
 ```bash
 # Navigate to the root project directory
-cd /var/www/pulseloop
+sds
 
 # Fetch the latest changes from the remote repository
 git fetch origin
@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 # This command checks your `models.py` for changes (like new tables or columns)
 # and automatically creates a new migration script for them.
-flask db migrate -m "Add new feature or bug fix description"
+
 
 # This command applies the new migration script to your MySQL database,
 # updating its structure to match your code.

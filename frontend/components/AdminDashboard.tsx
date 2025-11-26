@@ -88,7 +88,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 getAllBlogs(),
                 getAllBroadcastMessages(),
                 getAllFeedbacks(),
-                getPromotions('PENDING')
+                // Load all promotions (pending, approved, rejected), including inactive ones,
+                // so admin can see full promotion lifecycle.
+                getPromotions('ALL', { includeInactive: true })
             ]);
             setPendingUsers(pendingUsersData);
             setAllUsers(allUsersData);
@@ -433,10 +435,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
         setImageFile(null);
     };
 
-    const handlePromotionStatusChange = async (promotionId: string, status: 'APPROVED' | 'REJECTED') => {
+    const handlePromotionStatusChange = async (
+        promotionId: string,
+        status: 'APPROVED' | 'REJECTED',
+        options?: { durationDays?: number; isActive?: boolean }
+    ) => {
         setApprovingId(promotionId);
         try {
-            const updated = await adminUpdatePromotionStatus(promotionId, status);
+            const updated = await adminUpdatePromotionStatus(promotionId, {
+                status,
+                durationDays: options?.durationDays,
+                isActive: options?.isActive,
+            });
+            // After approving/rejecting, remove from the pending list
             setPromotions(prev => prev.filter(p => p.id !== updated.id));
         } catch (err: any) {
             setError(err?.message || 'Failed to update promotion status.');
@@ -2333,7 +2344,7 @@ const BroadcastMessagesTable: React.FC<{
 
 const PromotionsTable: React.FC<{
     promotions: Promotion[];
-    onChangeStatus: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+    onChangeStatus: (id: string, status: 'APPROVED' | 'REJECTED', options?: { durationDays?: number; isActive?: boolean }) => void;
     approvingId: string | null;
 }> = ({ promotions, onChangeStatus, approvingId }) => {
     if (promotions.length === 0) {
@@ -2349,6 +2360,8 @@ const PromotionsTable: React.FC<{
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Link</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Window</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -2380,21 +2393,66 @@ const PromotionsTable: React.FC<{
                                     <span className="text-gray-400 italic">No link</span>
                                 )}
                             </td>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                                <span
+                                    className={
+                                        promo.status === 'APPROVED'
+                                            ? 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800'
+                                            : promo.status === 'PENDING'
+                                            ? 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800'
+                                            : 'inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800'
+                                    }
+                                >
+                                    {promo.status.toLowerCase()}
+                                </span>
+                                {promo.status === 'APPROVED' && (
+                                    <span className="ml-2 text-xs text-gray-500">
+                                        {promo.isActive === false ? '(inactive)' : '(active)'}
+                                    </span>
+                                )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-700">
+                                {promo.startAt || promo.endAt ? (
+                                    <div className="space-y-0.5">
+                                        {promo.startAt && <div>From: {new Date(promo.startAt).toLocaleDateString()}</div>}
+                                        {promo.endAt && <div>To: {new Date(promo.endAt).toLocaleDateString()}</div>}
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-400 italic">Not set</span>
+                                )}
+                            </td>
                             <td className="px-4 py-3 text-sm text-gray-900 space-x-2">
-                                <button
-                                    onClick={() => onChangeStatus(promo.id, 'APPROVED')}
-                                    disabled={approvingId === promo.id}
-                                    className="px-3 py-1 rounded-md text-xs font-semibold bg-teal-500 text-white hover:bg-teal-600 disabled:bg-teal-300"
-                                >
-                                    {approvingId === promo.id ? 'Saving...' : 'Approve'}
-                                </button>
-                                <button
-                                    onClick={() => onChangeStatus(promo.id, 'REJECTED')}
-                                    disabled={approvingId === promo.id}
-                                    className="px-3 py-1 rounded-md text-xs font-semibold bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300"
-                                >
-                                    {approvingId === promo.id ? 'Saving...' : 'Reject'}
-                                </button>
+                                {promo.status === 'PENDING' && (
+                                    <>
+                                        <button
+                                            onClick={() => onChangeStatus(promo.id, 'APPROVED', { durationDays: 30, isActive: true })}
+                                            disabled={approvingId === promo.id}
+                                            className="px-3 py-1 rounded-md text-xs font-semibold bg-teal-500 text-white hover:bg-teal-600 disabled:bg-teal-300"
+                                        >
+                                            {approvingId === promo.id ? 'Saving...' : 'Approve (30 days)'}
+                                        </button>
+                                        <button
+                                            onClick={() => onChangeStatus(promo.id, 'REJECTED')}
+                                            disabled={approvingId === promo.id}
+                                            className="px-3 py-1 rounded-md text-xs font-semibold bg-red-500 text-white hover:bg-red-600 disabled:bg-red-300"
+                                        >
+                                            {approvingId === promo.id ? 'Saving...' : 'Reject'}
+                                        </button>
+                                    </>
+                                )}
+                                {promo.status === 'APPROVED' && (
+                                    <button
+                                        onClick={() => onChangeStatus(promo.id, 'APPROVED', { isActive: promo.isActive === false })}
+                                        disabled={approvingId === promo.id}
+                                        className="px-3 py-1 rounded-md text-xs font-semibold bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:bg-gray-100"
+                                    >
+                                        {approvingId === promo.id
+                                            ? 'Saving...'
+                                            : promo.isActive === false
+                                            ? 'Activate'
+                                            : 'Inactivate'}
+                                    </button>
+                                )}
                             </td>
                         </tr>
                     ))}

@@ -186,6 +186,9 @@ export interface Promotion {
     imageUrl?: string;
     targetUrl?: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';
+    isActive?: boolean;
+    startAt?: string | null;
+    endAt?: string | null;
     createdAt: string;
     updatedAt: string;
     business?: User;

@@ -236,16 +236,43 @@ export const createPromotion = async (data: CreatePromotionData): Promise<Promot
     return handleApiResponse(response);
 };
 
-export const getPromotions = async (status: 'PENDING' | 'APPROVED' | 'REJECTED' = 'APPROVED'): Promise<Promotion[]> => {
-    const response = await fetchWithAuth(`/promotions?status=${encodeURIComponent(status)}`);
+export type PromotionStatusFilter = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL';
+
+export const getPromotions = async (
+    status: PromotionStatusFilter = 'APPROVED',
+    options?: { includeInactive?: boolean }
+): Promise<Promotion[]> => {
+    const params = new URLSearchParams();
+    if (status && status !== 'ALL') {
+        params.append('status', status);
+    }
+    if (options?.includeInactive) {
+        params.append('includeInactive', 'true');
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `/promotions?${queryString}` : '/promotions';
+
+    const response = await fetchWithAuth(endpoint);
     const data = await handleApiResponse(response);
     return data.promotions || [];
 };
 
-export const adminUpdatePromotionStatus = async (promotionId: string, status: 'APPROVED' | 'REJECTED'): Promise<Promotion> => {
+export interface AdminUpdatePromotionOptions {
+    status: 'APPROVED' | 'REJECTED';
+    isActive?: boolean;
+    durationDays?: number;
+    startAt?: string;
+    endAt?: string;
+}
+
+export const adminUpdatePromotionStatus = async (
+    promotionId: string,
+    options: AdminUpdatePromotionOptions
+): Promise<Promotion> => {
     const response = await fetchWithAuth(`/admin/promotions/${promotionId}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(options),
     });
     return handleApiResponse(response);
 };

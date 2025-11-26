@@ -26,6 +26,7 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPosts, setTotalPosts] = useState(0);
     const [promotions, setPromotions] = useState<Promotion[]>([]);
+    const [activePromotionIndex, setActivePromotionIndex] = useState(0);
 
     const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE) || 1;
 
@@ -66,6 +67,17 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
         };
         loadPromotions();
     }, []);
+
+    // Rotate promotions like Facebook-style ads
+    useEffect(() => {
+        if (!promotions || promotions.length <= 1) return;
+
+        const interval = setInterval(() => {
+            setActivePromotionIndex((prev) => (prev + 1) % promotions.length);
+        }, 10000); // change every 10 seconds
+
+        return () => clearInterval(interval);
+    }, [promotions]);
 
     // Handle initial tag filter changes from trending topics
     useEffect(() => {
@@ -156,9 +168,11 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                         </p>
                     </div>
 
-                    {/* Promotions listed below the heading text */}
+                    {/* Rotating promotion card */}
                     <div className="mt-4 grid grid-cols-1 gap-4">
-                        {promotions.slice(0, 3).map((promo) => (
+                        {promotions.map((promo, index) => {
+                            if (index !== activePromotionIndex) return null;
+                            return (
                             <a
                                 key={promo.id}
                                 href={promo.targetUrl || '#'}
@@ -209,7 +223,8 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                                     )}
                                 </div>
                             </a>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}
