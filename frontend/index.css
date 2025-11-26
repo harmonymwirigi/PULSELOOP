@@ -45,7 +45,8 @@ body {
 }
 
 .animate-spin {
-  animation: spin 1s linear infinite;
+  /* Slower, smoother spinner so it doesn't feel too fast on mobile */
+  animation: spin 1.5s linear infinite;
 }
 
 /* Fade in animation */
@@ -85,7 +86,8 @@ body {
 }
 
 .animate-scroll {
-  animation: scroll 20s linear infinite;
+  /* Slow down announcement ticker so it reads comfortably in production */
+  animation: scroll 40s linear infinite;
 }
 
 /* Pause animation on hover */
