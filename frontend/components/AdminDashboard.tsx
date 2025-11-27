@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion, getPromotions, adminUpdatePromotionStatus, generateNewsletter, sendNewsletter, NewsletterDraft } from '../services/mockApi';
+import { getPendingUsers, approveUser, getAllUsers, updateUserRole, deleteUser, getPendingResources, approveResource, rejectResource, inactivateResource, reactivateResource, getPendingBlogs, approveBlog, rejectBlog, inactivateBlog, reactivateBlog, getAllBroadcastMessages, createBroadcastMessage, updateBroadcastMessage, deleteBroadcastMessage, toggleBroadcastMessageVisibility, getAllFeedbacks, updateFeedbackStatus, uploadImage, getAllPosts, adminDeletePost, getAllResources, getAllBlogs, getAbsoluteUrl, createNclexCourse, updateNclexCourse, deleteNclexCourse, getAdminNclexCourses, addNclexCourseResource, deleteNclexCourseResource, generateNclexQuestions, getNclexCourse, createNclexQuestion, updateNclexQuestion, deleteNclexQuestion, getPromotions, adminUpdatePromotionStatus, generateNewsletter, sendNewsletter, NewsletterDraft, createPromotion } from '../services/mockApi';
 import { User, Resource, Blog, BroadcastMessage, Feedback, Post, View, NclexCourse, NclexCourseStatus, NclexResourceType, NclexQuestion, Promotion } from '../types';
 import Spinner from './Spinner';
 import ApprovalDetailView from './ApprovalDetailView';
@@ -78,6 +78,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
     const [newsletterDraft, setNewsletterDraft] = useState<NewsletterDraft | null>(null);
     const [newsletterLoading, setNewsletterLoading] = useState(false);
     const [newsletterSending, setNewsletterSending] = useState(false);
+    const [promotionForm, setPromotionForm] = useState<{
+        title: string;
+        description: string;
+        imageUrl: string;
+        targetUrl: string;
+        durationValue: number;
+        durationUnit: 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
+    }>({
+        title: '',
+        description: '',
+        imageUrl: '',
+        targetUrl: '',
+        durationValue: 1,
+        durationUnit: 'WEEKS',
+    });
+    const [creatingPromotion, setCreatingPromotion] = useState(false);
     const [newsletterMessage, setNewsletterMessage] = useState<string | null>(null);
 
     const fetchData = useCallback(async () => {
@@ -1419,11 +1435,179 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigateTo }) => {
                 />;
             case 'PROMOTIONS':
                 return (
-                    <PromotionsTable
-                        promotions={promotions}
-                        onChangeStatus={handlePromotionStatusChange}
-                        approvingId={approvingId}
-                    />
+                    <div className="space-y-6">
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Create Promotion</h3>
+                            <p className="text-sm text-gray-500 mb-4">
+                                Create a promotion that will appear in the feed promotion container. Set the title, description,
+                                image URL, business or product link, and how long it should stay active.
+                            </p>
+                            <form
+                                className="space-y-3"
+                                onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    if (!promotionForm.title.trim()) {
+                                        setError('Promotion title is required.');
+                                        return;
+                                    }
+                                    try {
+                                        setCreatingPromotion(true);
+                                        setError(null);
+
+                                        const now = new Date();
+                                        const startAt = now.toISOString();
+                                        const value = Math.max(1, promotionForm.durationValue || 1);
+                                        const end = new Date(now.getTime());
+
+                                        switch (promotionForm.durationUnit) {
+                                            case 'HOURS':
+                                                end.setHours(end.getHours() + value);
+                                                break;
+                                            case 'DAYS':
+                                                end.setDate(end.getDate() + value);
+                                                break;
+                                            case 'WEEKS':
+                                                end.setDate(end.getDate() + value * 7);
+                                                break;
+                                            case 'MONTHS':
+                                                end.setMonth(end.getMonth() + value);
+                                                break;
+                                        }
+
+                                        const created = await createPromotion({
+                                            title: promotionForm.title.trim(),
+                                            description: promotionForm.description.trim() || undefined,
+                                            imageUrl: promotionForm.imageUrl.trim() || undefined,
+                                            targetUrl: promotionForm.targetUrl.trim() || undefined,
+                                        });
+
+                                        const updated = await adminUpdatePromotionStatus(created.id, {
+                                            status: 'APPROVED',
+                                            isActive: true,
+                                            startAt,
+                                            endAt: end.toISOString(),
+                                        });
+
+                                        setPromotions(prev => [updated, ...prev]);
+                                        setPromotionForm({
+                                            title: '',
+                                            description: '',
+                                            imageUrl: '',
+                                            targetUrl: '',
+                                            durationValue: 1,
+                                            durationUnit: 'WEEKS',
+                                        });
+                                    } catch (err: any) {
+                                        console.error('Failed to create promotion as admin', err);
+                                        setError(err?.message || 'Failed to create promotion.');
+                                    } finally {
+                                        setCreatingPromotion(false);
+                                    }
+                                }}
+                            >
+                                <div className="grid md:grid-cols-2 gap-3">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Promotion Title <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={promotionForm.title}
+                                            onChange={(e) => setPromotionForm(prev => ({ ...prev, title: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            placeholder="e.g., 20% off premium coaching sessions"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Description
+                                        </label>
+                                        <textarea
+                                            value={promotionForm.description}
+                                            onChange={(e) => setPromotionForm(prev => ({ ...prev, description: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                                            rows={3}
+                                            placeholder="Short copy that will show in the promotion card."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Image URL
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={promotionForm.imageUrl}
+                                            onChange={(e) => setPromotionForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            placeholder="Link to logo or product image"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Business / Product Link
+                                        </label>
+                                        <input
+                                            type="url"
+                                            value={promotionForm.targetUrl}
+                                            onChange={(e) => setPromotionForm(prev => ({ ...prev, targetUrl: e.target.value }))}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            placeholder="https://your-business-or-product-link"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3 pt-1">
+                                    <div className="flex items-center gap-2">
+                                        <label className="block text-sm font-medium text-gray-700">
+                                            Active for
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            value={promotionForm.durationValue}
+                                            onChange={(e) =>
+                                                setPromotionForm(prev => ({
+                                                    ...prev,
+                                                    durationValue: parseInt(e.target.value, 10) || 1,
+                                                }))
+                                            }
+                                            className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        />
+                                        <select
+                                            value={promotionForm.durationUnit}
+                                            onChange={(e) =>
+                                                setPromotionForm(prev => ({
+                                                    ...prev,
+                                                    durationUnit: e.target.value as 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS',
+                                                }))
+                                            }
+                                            className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        >
+                                            <option value="HOURS">hours</option>
+                                            <option value="DAYS">days</option>
+                                            <option value="WEEKS">weeks</option>
+                                            <option value="MONTHS">months</option>
+                                        </select>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <button
+                                            type="submit"
+                                            disabled={creatingPromotion}
+                                            className="inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:bg-teal-300 disabled:cursor-not-allowed"
+                                        >
+                                            {creatingPromotion ? 'Creating...' : 'Create Promotion'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <PromotionsTable
+                            promotions={promotions}
+                            onChangeStatus={handlePromotionStatusChange}
+                            approvingId={approvingId}
+                        />
+                    </div>
                 );
             case 'NEWSLETTERS':
                 return (

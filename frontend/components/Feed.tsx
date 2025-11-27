@@ -13,11 +13,12 @@ interface FeedProps {
     initialTagFilter?: string | null;
     onTagFilterChange?: (tag: string | null) => void;
     onSearchResult?: (result: any) => void;
+    onCreatePostClick?: () => void;
 }
 
 const POSTS_PER_PAGE = 5;
 
-const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilterChange, onSearchResult }) => {
+const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilterChange, onSearchResult, onCreatePostClick }) => {
     const { user } = useAuth();
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -26,8 +27,8 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPosts, setTotalPosts] = useState(0);
     const [promotions, setPromotions] = useState<Promotion[]>([]);
-    // Mixed feed items: posts and occasional promotion cards shown between posts.
-    const [feedItems, setFeedItems] = useState<Array<{ type: 'post'; post: Post } | { type: 'promotion'; promotion: Promotion }>>([]);
+    const [currentPromotionIndex, setCurrentPromotionIndex] = useState<number | null>(null);
+    const [isPromotionVisible, setIsPromotionVisible] = useState(false);
 
     const totalPages = Math.ceil(totalPosts / POSTS_PER_PAGE) || 1;
 
@@ -37,7 +38,10 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
             setError(null);
             const response = await getPosts(currentPage, POSTS_PER_PAGE, filterTag || undefined);
             // Ensure that we have an array of posts, even if API response is malformed.
-            setPosts(Array.isArray(response?.posts) ? response.posts : []);
+            const rawPosts = Array.isArray(response?.posts) ? response.posts : [];
+            // Hide story posts from the main feed so stories can live under their own section.
+            const nonStoryPosts = rawPosts.filter(post => !post.isStory);
+            setPosts(nonStoryPosts);
             setTotalPosts(response?.total || 0);
         } catch (err) {
             setError('Failed to fetch posts.');
@@ -69,52 +73,68 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
         loadPromotions();
     }, []);
 
-    const buildFeedItems = React.useCallback(() => {
-        if (!posts || posts.length === 0) {
-            setFeedItems([]);
-            return;
-        }
-
-        const baseItems: Array<{ type: 'post'; post: Post } | { type: 'promotion'; promotion: Promotion }> =
-            posts.map(post => ({ type: 'post', post }));
-
+    // Handle rotating promotions in a single dedicated container.
+    // Behaviour:
+    // - If there are no promotions, the container is hidden.
+    // - If there is one promotion, it will show, fade out briefly, then reappear after a delay.
+    // - If there are multiple promotions, they will show one at a time, picked randomly.
+    useEffect(() => {
         if (!promotions || promotions.length === 0) {
-            setFeedItems(baseItems);
+            setCurrentPromotionIndex(null);
+            setIsPromotionVisible(false);
             return;
         }
 
-        // Shuffle a copy of promotions so each build has a different order.
-        const shuffledPromos = [...promotions].sort(() => Math.random() - 0.5);
-        // Limit how many promos we show per page (e.g., at most 1 per 3 posts).
-        const maxPromos = Math.min(shuffledPromos.length, Math.floor(posts.length / 3) || 1);
+        const DISPLAY_DURATION = 8000; // ms the promotion stays fully visible
+        const FADE_DURATION = 500;     // ms for a simple fade out / in
+        const GAP_DURATION = 1000;     // ms with container hidden between promotions
 
-        const itemsWithPromos = [...baseItems];
-        for (let i = 0; i < maxPromos; i++) {
-            const promo = shuffledPromos[i];
-            // Choose a random insertion index between posts (avoid very top).
-            const insertIndex = Math.floor(Math.random() * (itemsWithPromos.length - 1)) + 1;
-            itemsWithPromos.splice(insertIndex, 0, { type: 'promotion', promotion: promo });
-        }
+        let displayTimeout: number | undefined;
+        let fadeTimeout: number | undefined;
+        let gapTimeout: number | undefined;
 
-        setFeedItems(itemsWithPromos);
-    }, [posts, promotions]);
+        const chooseNextIndex = (currentIndex: number | null): number => {
+            if (promotions.length === 1) {
+                return 0;
+            }
+            // Randomly pick a different index than the current one
+            let next = currentIndex ?? 0;
+            while (next === currentIndex) {
+                next = Math.floor(Math.random() * promotions.length);
+            }
+            return next;
+        };
 
-    // Initial build when posts or promotions change
-    useEffect(() => {
-        buildFeedItems();
-    }, [buildFeedItems]);
+        const startCycle = (fromIndex: number | null) => {
+            const nextIndex = chooseNextIndex(fromIndex);
+            setCurrentPromotionIndex(nextIndex);
+            setIsPromotionVisible(true);
 
-    // Periodically reshuffle promotions so different ones appear over time
-    useEffect(() => {
-        if (!posts || posts.length === 0 || !promotions || promotions.length === 0) {
-            return;
-        }
-        const interval = setInterval(() => {
-            buildFeedItems();
-        }, 15000); // every 15 seconds
+            // After visible duration, trigger fade out
+            displayTimeout = window.setTimeout(() => {
+                setIsPromotionVisible(false);
 
-        return () => clearInterval(interval);
-    }, [buildFeedItems, posts.length, promotions.length]);
+                // Wait for fade, then wait for small gap, then show another promotion
+                fadeTimeout = window.setTimeout(() => {
+                    gapTimeout = window.setTimeout(() => {
+                        startCycle(nextIndex);
+                    }, GAP_DURATION);
+                }, FADE_DURATION);
+            }, DISPLAY_DURATION);
+        };
+
+        // Kick off the cycle using current index (if any) to avoid repeat
+        startCycle(currentPromotionIndex);
+
+        return () => {
+            if (displayTimeout) window.clearTimeout(displayTimeout);
+            if (fadeTimeout) window.clearTimeout(fadeTimeout);
+            if (gapTimeout) window.clearTimeout(gapTimeout);
+        };
+        // We intentionally do NOT include currentPromotionIndex in deps
+        // to avoid restarting the cycle on every state update.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [promotions]);
 
     // Handle initial tag filter changes from trending topics
     useEffect(() => {
@@ -179,6 +199,93 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
 
     return (
         <div>
+            {/* Create Post button (top-right) */}
+            {user && (user.role === Role.NURSE || user.role === Role.ADMIN) && (
+                <div className="mb-4 flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (onCreatePostClick) {
+                                onCreatePostClick();
+                            }
+                        }}
+                        className="px-6 py-2 rounded-full bg-teal-500 text-white font-semibold shadow hover:bg-teal-600 transition-colors"
+                    >
+                        Create a post
+                    </button>
+                </div>
+            )}
+
+            {/* Promotion container: shows one promotion at a fixed position, if any approved promotions exist */}
+            {promotions.length > 0 && currentPromotionIndex !== null && (
+                <div
+                    className={`mb-6 sticky top-4 z-20 transition-opacity duration-500 ${
+                        isPromotionVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                >
+                    {(() => {
+                        const promo = promotions[currentPromotionIndex];
+                        if (!promo) return null;
+                        return (
+                            <div className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-4 sm:p-5 text-white shadow-md">
+                                <a
+                                    href={promo.targetUrl || '#'}
+                                    target={promo.targetUrl ? '_blank' : undefined}
+                                    rel={promo.targetUrl ? 'noopener noreferrer' : undefined}
+                                    className="group flex flex-col sm:flex-row gap-3 sm:gap-4 cursor-pointer"
+                                >
+                                    {promo.imageUrl && (
+                                        <div className="w-full sm:w-32 md:w-40 h-32 sm:h-24 md:h-28 rounded-lg overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
+                                            <img
+                                                src={promo.imageUrl}
+                                                alt={promo.title}
+                                                className="max-w-full max-h-full object-contain"
+                                            />
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                        <p className="text-xs uppercase tracking-wide text-indigo-100/80 font-semibold">
+                                            Sponsored
+                                        </p>
+                                        <p className="text-sm sm:text-base font-semibold leading-snug">
+                                            {promo.title}
+                                        </p>
+                                        {promo.business?.businessName && (
+                                            <p className="text-xs text-indigo-100/80">
+                                                {promo.business.businessName}
+                                            </p>
+                                        )}
+                                        {promo.description && (
+                                            <p className="text-xs sm:text-sm text-indigo-100/90 whitespace-pre-wrap">
+                                                {promo.description}
+                                            </p>
+                                        )}
+                                        {promo.targetUrl && (
+                                            <span className="inline-flex items-center mt-1 text-[11px] sm:text-xs text-yellow-100 group-hover:text-white font-semibold">
+                                                Learn more
+                                                <svg
+                                                    className="w-3 h-3 ml-1"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M9 5l7 7-7 7"
+                                                    />
+                                                </svg>
+                                            </span>
+                                        )}
+                                    </div>
+                                </a>
+                            </div>
+                        );
+                    })()}
+                </div>
+            )}
+
             {/* Page Search */}
             {user && (
                 <div className="mb-4">
@@ -193,121 +300,17 @@ const Feed: React.FC<FeedProps> = ({ navigateToPost, initialTagFilter, onTagFilt
                 </div>
             )}
 
-            {user && (user.role === Role.NURSE || user.role === Role.ADMIN) && <CreatePostForm onCreatePost={handleCreatePost} />}
-            {user && user.role === Role.PENDING && (
-                 <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6" role="alert">
-                    <p className="font-bold">Account Pending</p>
-                    <p>Your account is awaiting admin approval. You can view posts, but you cannot post, comment, or react yet.</p>
-                </div>
-            )}
-            {filterTag && (
-                <div className="bg-teal-50 border-l-4 border-teal-500 text-teal-800 p-4 rounded-md mb-6 flex items-center justify-between">
-                    <div>
-                        <span className="font-semibold">Filtering by tag:</span>
-                        <span className="inline-block bg-teal-200 text-teal-800 text-sm font-medium ml-2 px-2.5 py-0.5 rounded-full">{filterTag}</span>
-                    </div>
-                    <button onClick={handleClearFilter} className="font-semibold hover:underline">
-                        Clear Filter
-                    </button>
-                </div>
-            )}
             <div className="space-y-6">
-                {feedItems.map((item, index) => {
-                    if (item.type === 'post') {
-                        return (
-                            <PostCard
-                                key={item.post.id}
-                                post={item.post}
-                                onUpdate={fetchPosts}
-                                onNavigateToPost={navigateToPost}
-                                onTagClick={handleTagClick}
-                            />
-                        );
-                    }
-
-                    const promo = item.promotion;
-                    return (
-                        <div
-                            key={`promo-${promo.id}-${index}`}
-                            className="bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 rounded-2xl p-4 sm:p-5 text-white shadow-md"
-                        >
-                            <a
-                                href={promo.targetUrl || '#'}
-                                target={promo.targetUrl ? '_blank' : undefined}
-                                rel={promo.targetUrl ? 'noopener noreferrer' : undefined}
-                                className="group flex flex-col sm:flex-row gap-3 sm:gap-4 cursor-pointer"
-                            >
-                                {promo.imageUrl && (
-                                    <div className="w-full sm:w-32 md:w-40 h-32 sm:h-24 md:h-28 rounded-lg overflow-hidden bg-white flex-shrink-0 flex items-center justify-center">
-                                        <img
-                                            src={promo.imageUrl}
-                                            alt={promo.title}
-                                            className="max-w-full max-h-full object-contain"
-                                        />
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0 space-y-1">
-                                    <p className="text-xs uppercase tracking-wide text-indigo-100/80 font-semibold">
-                                        Sponsored
-                                    </p>
-                                    <p className="text-sm sm:text-base font-semibold leading-snug">
-                                        {promo.title}
-                                    </p>
-                                    {promo.business?.businessName && (
-                                        <p className="text-xs text-indigo-100/80">
-                                            {promo.business.businessName}
-                                        </p>
-                                    )}
-                                    {promo.description && (
-                                        <p className="text-xs sm:text-sm text-indigo-100/90 whitespace-pre-wrap">
-                                            {promo.description}
-                                        </p>
-                                    )}
-                                    {promo.targetUrl && (
-                                        <span className="inline-flex items-center mt-1 text-[11px] sm:text-xs text-yellow-100 group-hover:text-white font-semibold">
-                                            Learn more
-                                            <svg
-                                                className="w-3 h-3 ml-1"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M9 5l7 7-7 7"
-                                                />
-                                            </svg>
-                                        </span>
-                                    )}
-                                </div>
-                            </a>
-                        </div>
-                    );
-                })}
+                {posts.map(post => (
+                    <PostCard
+                        key={post.id}
+                        post={post}
+                        onUpdate={fetchPosts}
+                        onNavigateToPost={navigateToPost}
+                        onTagClick={handleTagClick}
+                    />
+                ))}
             </div>
-            {totalPages > 1 && (
-                <div className="flex justify-between items-center mt-8 p-4 bg-white rounded-lg shadow-md">
-                    <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1 || loading}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold"
-                    >
-                        &larr; Previous
-                    </button>
-                    <span className="text-gray-700 font-medium">
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === totalPages || loading}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed font-semibold"
-                    >
-                        Next &rarr;
-                    </button>
-                </div>
-            )}
         </div>
     );
 };

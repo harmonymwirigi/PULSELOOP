@@ -357,7 +357,9 @@ export const getPosts = async (page: number, limit: number, tag?: string): Promi
             author: {
                 ...post.author,
                 avatarUrl: getAbsoluteUrl(post.author.avatarUrl)
-            }
+            },
+            // Derive isStory flag in the frontend based on tags; default is false (normal feed post)
+            isStory: !!post.tags?.includes('story'),
         }));
     }
     
@@ -387,7 +389,8 @@ export const createPost = async (text: string, mediaFile: File | null, displayNa
         author: {
             ...post.author,
             avatarUrl: getAbsoluteUrl(post.author.avatarUrl)
-        }
+        },
+        isStory: !!post.tags?.includes('story'),
     };
 };
 
@@ -405,7 +408,8 @@ export const updatePost = async (postId: string, text: string, tags: string[]): 
         author: {
             ...post.author,
             avatarUrl: getAbsoluteUrl(post.author.avatarUrl)
-        }
+        },
+        isStory: !!post.tags?.includes('story'),
     };
 };
 

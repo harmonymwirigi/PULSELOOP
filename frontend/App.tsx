@@ -4,13 +4,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Header from './components/Header';
 import Feed from './components/Feed';
+import CreatePostForm from './components/CreatePostForm';
 import AdminDashboard from './components/AdminDashboard';
 import Profile, { ProfessionalsDirectory } from './components/Profile';
 import Resources from './components/Resources';
 import Blogs from './components/Blogs';
 import LandingPage from './components/LandingPage';
 // FIX: Import shared View type to resolve conflict with Header component.
-import { Post, Role, Resource, View, Blog, NclexCourse, NclexCourseResource, NclexQuestion } from './types';
+import { Post, Role, Resource, View, Blog, NclexCourse, NclexCourseResource, NclexQuestion, DisplayNamePreference } from './types';
+import { createPost as apiCreatePost } from './services/mockApi';
 import Spinner from './components/Spinner';
 import SinglePostView from './components/SinglePostView';
 import Chatbot from './components/Chatbot';
@@ -30,7 +32,7 @@ import BroadcastMessageComponent from './components/BroadcastMessage';
 import UserProfilePage from './components/UserProfilePage';
 import Conversations from './components/Conversations';
 import MobileConversations from './components/MobileConversations';
-import { getNclexCourses, getNclexCourse, subscribeToNclexCourse, submitNclexAttempt, SubmitNclexAttemptResponse, updateNclexResourceProgress } from './services/mockApi';
+import { getNclexCourses, getNclexCourse, subscribeToNclexCourse, submitNclexAttempt, SubmitNclexAttemptResponse, updateNclexResourceProgress, getPosts } from './services/mockApi';
 
 // FIX: Removed local View type definition. The shared type is now imported from types.ts.
 
@@ -494,7 +496,7 @@ const NclexCoursesView: React.FC = () => {
                                                 disabled={subscribing || selectedCourse.status !== 'PUBLISHED'}
                                                 className="px-4 py-2 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                             >
-                                                {subscribing ? 'Subscribing...' : 'Subscribe'}
+                                                {subscribing ? 'Subscribing...' : 'Test'}
                                             </button>
                                         </div>
                                     </div>
@@ -921,7 +923,44 @@ const AppContent: React.FC = () => {
 
     const MainContent: React.FC = () => {
         switch (currentView) {
-            case 'FEED': return <Feed navigateToPost={navigateToPost} initialTagFilter={feedTagFilter} onTagFilterChange={setFeedTagFilter} onSearchResult={handleSearchResult} />;
+            case 'FEED': 
+                return (
+                    <Feed
+                        navigateToPost={navigateToPost}
+                        initialTagFilter={feedTagFilter}
+                        onTagFilterChange={setFeedTagFilter}
+                        onSearchResult={handleSearchResult}
+                        onCreatePostClick={() => setCurrentView('CREATE_POST')}
+                    />
+                );
+            case 'CREATE_POST': 
+                return (
+                    <div className="max-w-2xl mx-auto">
+                        <h1 className="text-2xl font-bold mb-4 text-gray-800">Create a new post</h1>
+                        <p className="text-sm text-gray-500 mb-4">Share an experience, case, or question with the community.</p>
+                        <CreatePostForm 
+                            onCreatePost={async (text, media, pref, tags) => {
+                                await apiCreatePost(text, media, pref, tags);
+                                // After posting, navigate back to FEED
+                                setCurrentView('FEED');
+                            }} 
+                            onClose={() => {
+                                setCurrentView('FEED');
+                            }}
+                        />
+                    </div>
+                );
+            case 'CREATE_STORY':
+                return (
+                    <div className="max-w-2xl mx-auto">
+                        <h1 className="text-2xl font-bold mb-4 text-gray-800">Share your story</h1>
+                        <p className="text-sm text-gray-500 mb-4">
+                            Upload a short video or picture and tell us something about your journey or experience.
+                        </p>
+                        <StoryForm onDone={() => setCurrentView('FEED')} />
+                        <StoriesList />
+                    </div>
+                );
             case 'PROFILE': return <Profile />;
             case 'RESOURCES': return <Resources navigateToResource={navigateToResource} onSearchResult={handleSearchResult} />;
             case 'BLOGS': return <Blogs navigateToBlog={navigateToBlog} onSearchResult={handleSearchResult} />;
@@ -940,7 +979,15 @@ const AppContent: React.FC = () => {
                 return user.role === Role.ADMIN 
                     ? <AdminDashboard navigateTo={navigateTo} /> 
                     : <p className="text-center text-red-500">Access Denied. You are not an admin.</p>;
-            default: return <Feed navigateToPost={navigateToPost} initialTagFilter={feedTagFilter} onTagFilterChange={setFeedTagFilter} />;
+            default: 
+                return (
+                    <Feed
+                        navigateToPost={navigateToPost}
+                        initialTagFilter={feedTagFilter}
+                        onTagFilterChange={setFeedTagFilter}
+                        onCreatePostClick={() => setCurrentView('CREATE_POST')}
+                    />
+                );
         }
     };
 
@@ -1076,6 +1123,233 @@ const AppContent: React.FC = () => {
                 onOpenNotifications={handleOpenNotifications}
                 onInviteClick={() => setIsInviteModalOpen(true)}
             />
+        </div>
+    );
+};
+
+const StoryForm: React.FC<{ onDone: () => void }> = ({ onDone }) => {
+    const [text, setText] = React.useState('');
+    const [mediaFile, setMediaFile] = React.useState<File | null>(null);
+    const [preview, setPreview] = React.useState<string | null>(null);
+    const [mediaType, setMediaType] = React.useState<'image' | 'video' | null>(null);
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
+    const [success, setSuccess] = React.useState<string | null>(null);
+    const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setMediaFile(file);
+            setPreview(URL.createObjectURL(file));
+            if (file.type.startsWith('video/')) {
+                setMediaType('video');
+            } else {
+                setMediaType('image');
+            }
+        }
+    };
+
+    const handleRemoveMedia = () => {
+        setMediaFile(null);
+        setPreview(null);
+        setMediaType(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!text.trim() && !mediaFile) {
+            setError('Please add a short story or a media file.');
+            return;
+        }
+        try {
+            setLoading(true);
+            setError(null);
+            setSuccess(null);
+            // For stories we use full name by default and add a "story" tag
+            await apiCreatePost(text, mediaFile, DisplayNamePreference.FullName, ['story']);
+            setSuccess('Your story has been shared.');
+            setText('');
+            handleRemoveMedia();
+            // Navigate back after a short delay so user can see success
+            setTimeout(() => {
+                onDone();
+            }, 600);
+        } catch (err: any) {
+            setError(err?.message || 'Failed to share your story.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6 space-y-4">
+            {error && (
+                <div className="px-3 py-2 rounded-md bg-red-50 text-red-700 text-sm border border-red-200">
+                    {error}
+                </div>
+            )}
+            {success && (
+                <div className="px-3 py-2 rounded-md bg-emerald-50 text-emerald-700 text-sm border border-emerald-200">
+                    {success}
+                </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-semibold text-gray-800 mb-1">
+                        Your story
+                    </label>
+                    <textarea
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Share a moment, journey, or success that might inspire another nurse..."
+                        className="w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 min-h-[120px] text-sm"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-800">
+                        Add a photo or video (optional)
+                    </label>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*,video/*"
+                                onChange={handleFileChange}
+                                className="hidden"
+                                id="story-media-upload"
+                            />
+                            <label
+                                htmlFor="story-media-upload"
+                                className="inline-flex items-center px-3 py-2 border border-dashed border-indigo-400 rounded-full text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-500 cursor-pointer transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                Upload image or video
+                            </label>
+                            <span className="text-xs text-gray-500 hidden sm:inline">
+                                Ideal for short clips or a single photo.
+                            </span>
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading || (!text.trim() && !mediaFile)}
+                            className="px-6 py-2 bg-indigo-600 text-white rounded-full font-semibold hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+                        >
+                            {loading ? <Spinner /> : 'Share story'}
+                        </button>
+                    </div>
+                </div>
+                {preview && (
+                    <div className="mt-2 relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                        {mediaType === 'image' ? (
+                            <img src={preview} alt="Story media preview" className="w-full max-h-72 object-contain bg-black/5" />
+                        ) : (
+                            <video src={preview} controls className="w-full max-h-72 bg-black" />
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleRemoveMedia}
+                            className="absolute top-2 right-2 bg-gray-900/70 text-white rounded-full p-1 hover:bg-gray-900/90"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
+            </form>
+        </div>
+    );
+};
+
+const StoriesList: React.FC = () => {
+    const [stories, setStories] = React.useState<Post[]>([]);
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+        const loadStories = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                // Load first page of posts filtered by "story" tag
+                const response = await getPosts(1, 20, 'story');
+                const rawPosts = Array.isArray(response?.posts) ? response.posts : [];
+                const onlyStories = rawPosts.filter(p => p.isStory);
+                setStories(onlyStories);
+            } catch (err: any) {
+                setError(err?.message || 'Failed to load stories.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadStories();
+    }, []);
+
+    if (loading && stories.length === 0) {
+        return (
+            <div className="mt-6 flex justify-center">
+                <Spinner size="md" color="teal" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+                <h2 className="text-lg font-semibold text-gray-800">Recent stories</h2>
+                {error && <span className="text-xs text-red-500">{error}</span>}
+            </div>
+            {stories.length === 0 && !loading ? (
+                <p className="text-sm text-gray-500">
+                    No stories have been shared yet. Be the first to share your journey.
+                </p>
+            ) : (
+                <div className="space-y-4">
+                    {stories.map(story => (
+                        <div
+                            key={story.id}
+                            className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 flex flex-col sm:flex-row gap-3"
+                        >
+                            {story.mediaUrl && (
+                                <div className="w-full sm:w-40 md:w-48 h-40 sm:h-32 md:h-36 rounded-lg overflow-hidden bg-black/5 flex-shrink-0 flex items-center justify-center">
+                                    {story.mediaType === 'video' ? (
+                                        <video
+                                            src={story.mediaUrl}
+                                            className="w-full h-full object-cover"
+                                            muted
+                                            controls
+                                        />
+                                    ) : (
+                                        <img
+                                            src={story.mediaUrl}
+                                            alt="Story media"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )}
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0 space-y-1">
+                                <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">
+                                    Story
+                                </p>
+                                <p className="text-sm text-gray-800 whitespace-pre-wrap line-clamp-4">
+                                    {story.text}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                    {new Date(story.createdAt).toLocaleString()}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

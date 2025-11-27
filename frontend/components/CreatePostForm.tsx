@@ -6,9 +6,10 @@ import { Role, DisplayNamePreference } from '../types';
 
 interface CreatePostFormProps {
     onCreatePost: (text: string, mediaFile: File | null, displayNamePreference: DisplayNamePreference, tags: string[]) => Promise<void>;
+    onClose?: () => void;
 }
 
-const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
+const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost, onClose }) => {
     const { user } = useAuth();
     const [text, setText] = useState('');
     const [tags, setTags] = useState('');
@@ -112,7 +113,19 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
     };
 
     return (
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <div className="bg-white p-4 rounded-lg shadow-md mb-6 relative">
+            {onClose && (
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    aria-label="Close"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            )}
             {successMessage && (
                 <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
                     <div className="flex items-center">
@@ -156,19 +169,40 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ onCreatePost }) => {
                                 </button>
                             </div>
                         )}
-                        <div className="flex justify-between items-center mt-2">
-                            <input
-                                type="file"
-                                accept="image/*,video/*"
-                                onChange={handleFileChange}
-                                ref={fileInputRef}
-                                className="hidden"
-                                id="media-upload"
-                            />
-                            <label htmlFor="media-upload" className="cursor-pointer text-teal-500 hover:text-teal-600">
-                               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            </label>
-                            <button type="submit" disabled={loading || (!text.trim() && !mediaFile)} className="px-6 py-2 bg-teal-500 text-white rounded-full font-semibold hover:bg-teal-600 transition-colors disabled:bg-teal-300 disabled:cursor-not-allowed flex items-center">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between mt-3 gap-3">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="file"
+                                    accept="image/*,video/*"
+                                    onChange={handleFileChange}
+                                    ref={fileInputRef}
+                                    className="hidden"
+                                    id="media-upload"
+                                />
+                                <label
+                                    htmlFor="media-upload"
+                                    className="inline-flex items-center px-3 py-2 border border-dashed border-teal-400 rounded-full text-sm font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 hover:border-teal-500 cursor-pointer transition-colors"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        className="h-5 w-5 mr-2"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Add image or video
+                                </label>
+                                <span className="text-xs text-gray-500 hidden sm:inline">
+                                    JPG, PNG, or MP4 up to a few minutes.
+                                </span>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={loading || (!text.trim() && !mediaFile)}
+                                className="px-6 py-2 bg-teal-500 text-white rounded-full font-semibold hover:bg-teal-600 transition-colors disabled:bg-teal-300 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
                                 {loading ? <Spinner /> : 'Next'}
                             </button>
                         </div>

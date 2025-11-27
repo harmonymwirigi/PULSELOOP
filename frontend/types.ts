@@ -10,6 +10,8 @@ export enum Role {
 export type View =
   | 'FEED'
   | 'ADMIN'
+  | 'CREATE_POST'
+  | 'CREATE_STORY'
   | 'PROFILE'
   | 'RESOURCES'
   | 'BLOGS'
@@ -109,6 +111,7 @@ export interface Post {
     author: User;
     text: string;
     tags?: string[];
+    isStory?: boolean;
     displayName?: string;
     mediaUrl?: string;
     mediaType?: 'image' | 'video';
