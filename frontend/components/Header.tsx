@@ -169,7 +169,7 @@ const Header: React.FC<HeaderProps> = ({ navigateTo, currentView, onOpenNotifica
                                     </div>
                                     <div>
                                         <p className="font-semibold text-gray-900 dark:text-white">{user.name}</p>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.role}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.title || 'No title'}</p>
                                     </div>
                                 </div>
                             </div>

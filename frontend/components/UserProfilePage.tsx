@@ -111,7 +111,9 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
                                 </button>
                                 <h1 className="text-3xl font-bold text-gray-900">User Profile</h1>
                             </div>
-                            <StatusBadge text={user.role} />
+                            <span className="text-sm font-medium text-gray-700 px-3 py-1 bg-gray-100 rounded-full">
+                                {user.title || 'No title'}
+                            </span>
                         </div>
 
                         {/* Profile Header */}
@@ -125,7 +127,9 @@ const UserProfilePage: React.FC<UserProfilePageProps> = ({ onNavigate }) => {
                                 <h2 className="text-3xl font-bold text-gray-900 mb-2">{user.name}</h2>
                                 <p className="text-xl text-gray-700 font-medium mb-3">{user.email}</p>
                                 <div className="flex items-center space-x-4">
-                                    <StatusBadge text={user.role} />
+                                    <span className="text-sm font-medium text-gray-700 px-3 py-1 bg-gray-100 rounded-full">
+                                        {user.title || 'No title'}
+                                    </span>
                                     <span className="text-sm text-gray-600">
                                         Profile Completion: {user.profileCompletionPercentage || 0}%
                                     </span>

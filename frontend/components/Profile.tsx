@@ -210,7 +210,9 @@ const Profile: React.FC = () => {
                 <div className="text-center sm:text-left mt-4 sm:mt-0 flex-grow">
                     <h2 className="text-3xl font-bold text-gray-800">{user.name}</h2>
                     <p className="text-gray-500 mt-1 mb-2">{user.email}</p>
-                    <span className={`text-sm font-medium px-3 py-1 rounded-full ${getRoleBadgeClasses(user.role)}`}>{user.role}</span>
+                    {user.title && (
+                        <span className="text-sm font-medium px-3 py-1 rounded-full bg-teal-100 text-teal-800">{user.title}</span>
+                    )}
                 </div>
 
                 {!isEditing && (
@@ -243,8 +245,8 @@ const Profile: React.FC = () => {
                         <div className="text-xs text-indigo-900/70 mt-1">Posts Sample Page</div>
                     </div>
                     <div className="bg-cyan-50 border border-cyan-100 rounded-lg p-4 text-center">
-                        <div className="text-sm font-semibold text-cyan-700">{user.role}</div>
-                        <div className="text-xs text-cyan-900/70 mt-1">Your Role</div>
+                        <div className="text-sm font-semibold text-cyan-700">{user.title || 'Not set'}</div>
+                        <div className="text-xs text-cyan-900/70 mt-1">Your Title</div>
                     </div>
                     <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 text-center">
                         <div className="text-xl font-bold text-emerald-700">
@@ -912,8 +914,8 @@ export const ProfessionalsDirectory: React.FC<{ initialUserId?: string; onSearch
                             <dd className="mt-1 text-gray-800">{selectedUser.email}</dd>
                         </div>
                         <div>
-                            <dt className="font-medium text-gray-500">Role</dt>
-                            <dd className="mt-1 text-gray-800">{selectedUser.role}</dd>
+                            <dt className="font-medium text-gray-500">Title</dt>
+                            <dd className="mt-1 text-gray-800">{selectedUser.title || <span className="text-gray-400 italic">Not set</span>}</dd>
                         </div>
                         <div>
                             <dt className="font-medium text-gray-500">Department / Specialty</dt>
