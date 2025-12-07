@@ -346,9 +346,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, onUpdate, isSingleView = fals
                         <div>
                              <div className="flex items-center space-x-2">
                                 <p className="font-bold text-gray-800">{displayName}</p>
-                                {!isAnonymous && (
-                                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${getRoleBadgeClasses(post.author.role)}`}>
-                                        {post.author.role}
+                                {!isAnonymous && post.author.title && (
+                                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                                        {post.author.title}
                                     </span>
                                 )}
                             </div>
